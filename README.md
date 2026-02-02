@@ -1,2 +1,15 @@
 # Splendor-Ref
-The authoritative implementation of the Splendor game logic and communication protocol. This repository provides a centralized Referee to orchestrate matches between two AI engines using STDIN/STDOUT pipes. Includes standardized cards.json and nobles.json datasets, precise timing logic with a time-bank system, and complete move validation for competitive AI development.
+
+A language-agnostic **Referee** and technical specification for Splendor AI development.
+
+### Documentation
+
+For requirements, communication protocols, and system architecture, visit:
+**[Splendor Technical Specification Doc](https://docs.google.com/document/d/1Kaxwhw_BPadKAm-6Yx3AHF48tGFeXDjUvHSWNuZoMf0/edit?tab=t.0)**
+
+### Resources
+
+Use these standardized files for engine development:
+
+* **`cards.json`**: Data for all 90 development cards.
+* **`nobles.json`**: Data for all 10 noble patrons.
