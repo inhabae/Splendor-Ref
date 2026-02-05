@@ -77,7 +77,7 @@ def run_tournament(ref_cmd, engine1_cmd, engine2_cmd):
 
 if __name__ == "__main__":
     # Command to run your referee
-    ref_call = ["./referee", "12345"] # Seed 12345
+    ref_call = ["./referee", "0"] # Seed 0 means random seed, Seed > 0 means fixed seed
     
     # Commands to run your engines with log file arguments
     p1_call = ["python3", "random_engine.py", "engine1.log"]
