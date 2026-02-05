@@ -295,6 +295,7 @@ pair<Move, ValidationResult> parseMove(const string& move_string, int player_id)
             }
             
             // Find NOBLE keyword (optional, for explicit noble selection)
+            // Note: Parsed again in the common section below for consistency
             size_t noble_idx = tokens.size();
             for (size_t i = 2; i < tokens.size(); i++) {
                 if (tokens[i] == "NOBLE") {
@@ -322,14 +323,20 @@ pair<Move, ValidationResult> parseMove(const string& move_string, int player_id)
                 move.auto_payment = true;
             }
             
-            // Parse noble selection (after NOBLE)
-            if (noble_idx < tokens.size() && noble_idx + 1 < tokens.size()) {
-                move.noble_id = std::stoi(tokens[noble_idx + 1]);
-            }
-            
         } else {
             return {move, ValidationResult(false, "Unknown move action: " + action)};
         }
+
+        // Common noble selection (only valid for BUY, but parsed for all to catch errors in validateMove)
+        for (size_t i = 1; i < tokens.size(); i++) {
+            if (tokens[i] == "NOBLE") {
+                if (i + 1 < tokens.size()) {
+                    move.noble_id = std::stoi(tokens[i + 1]);
+                }
+                break;
+            }
+        }
+
     } catch (const exception& e) {
         return {move, ValidationResult(false, "Malformed move parameter: " + string(e.what()))};
     }
@@ -361,6 +368,45 @@ ValidationResult validateMove(const GameState& state, const Move& move) {
         default:
             return ValidationResult(false, "Invalid move type");
     }
+}
+
+// Helper to validate noble choice at end of turn
+ValidationResult validateNobleChoice(const GameState& state, const Tokens& bonuses_after_move, int specified_noble_id) {
+    vector<int> qualifying_nobles;
+    for (const Noble& noble : state.available_nobles) {
+        if (bonuses_after_move.black >= noble.requirements.black &&
+            bonuses_after_move.blue >= noble.requirements.blue &&
+            bonuses_after_move.white >= noble.requirements.white &&
+            bonuses_after_move.green >= noble.requirements.green &&
+            bonuses_after_move.red >= noble.requirements.red) {
+            qualifying_nobles.push_back(noble.id);
+        }
+    }
+    
+    if (qualifying_nobles.empty()) {
+        if (specified_noble_id != -1) {
+            return ValidationResult(false, "No nobles qualify, but noble_id specified");
+        }
+    } else if (qualifying_nobles.size() == 1) {
+        if (specified_noble_id != -1 && specified_noble_id != qualifying_nobles[0]) {
+            return ValidationResult(false, "Noble_id doesn't match the qualifying noble");
+        }
+    } else {
+        // Multiples qualify - player must specify one, or referee will pick lowest ID
+        if (specified_noble_id != -1) {
+            bool found = false;
+            for (int id : qualifying_nobles) {
+                if (id == specified_noble_id) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return ValidationResult(false, "Specified noble does not qualify");
+            }
+        }
+    }
+    return ValidationResult(true);
 }
 
 // Validate TAKE_GEMS move
@@ -485,6 +531,11 @@ ValidationResult validateTakeGems(const GameState& state, const Move& move) {
         return ValidationResult(false, "Cannot return more joker gems than you have");
     }
     
+    // Nobles can only be earned during BUY moves
+    if (move.noble_id != -1) {
+        return ValidationResult(false, "Cannot specify a noble in a TAKE_GEMS move");
+    }
+    
     return ValidationResult(true);
 }
 
@@ -581,6 +632,11 @@ ValidationResult validateReserveCard(const GameState& state, const Move& move) {
     }
     if (returned.joker > player.tokens.joker + joker_gained) {
         return ValidationResult(false, "Cannot return more joker gems than you have");
+    }
+    
+    // Nobles can only be earned during BUY moves
+    if (move.noble_id != -1) {
+        return ValidationResult(false, "Cannot specify a noble in a RESERVE_CARD move");
     }
     
     return ValidationResult(true);
@@ -737,50 +793,7 @@ ValidationResult validateBuyCard(const GameState& state, const Move& move) {
     else if (target_card->color == "green") new_bonuses.green++;
     else if (target_card->color == "red") new_bonuses.red++;
     
-    vector<int> qualifying_nobles;
-    for (const Noble& noble : state.available_nobles) {
-        if (new_bonuses.black >= noble.requirements.black &&
-            new_bonuses.blue >= noble.requirements.blue &&
-            new_bonuses.white >= noble.requirements.white &&
-            new_bonuses.green >= noble.requirements.green &&
-            new_bonuses.red >= noble.requirements.red) {
-            qualifying_nobles.push_back(noble.id);
-        }
-    }
-    
-    // Validate noble selection
-    if (qualifying_nobles.size() == 0) {
-        // No nobles qualify
-        if (move.noble_id != -1) {
-            return ValidationResult(false, "No nobles qualify, but noble_id specified");
-        }
-    }
-    else if (qualifying_nobles.size() == 1) {
-        // One noble qualifies - can be automatic or explicit
-        if (move.noble_id != -1 && move.noble_id != qualifying_nobles[0]) {
-            return ValidationResult(false, "Noble_id doesn't match the qualifying noble");
-        }
-    }
-    else {
-        // Multiple nobles qualify
-        // If noble_id specified, check it's valid
-        if (move.noble_id != -1) {
-            // Check the specified noble is in the qualifying list
-            bool found = false;
-            for (int noble_id : qualifying_nobles) {
-                if (noble_id == move.noble_id) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                return ValidationResult(false, "Specified noble does not qualify");
-            }
-        }
-        // If noble_id not specified, one will be randomly assigned
-    }
-    
-    return ValidationResult(true);
+    return validateNobleChoice(state, new_bonuses, move.noble_id);
 }
 
 // Helper function to load a specific card by ID
@@ -1100,19 +1113,56 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                     }
                 }
                 
+                // Check for nobles ONLY during BUY_CARD moves
                 checkAndAssignNobles(state, player_idx, move.noble_id, err_os);
             } else {
                 return ValidationResult(false, "Card ID " + to_string(move.card_id) + " not found in board or reserved");
             }
             break;
         }
+        case REVEAL_CARD:
+            // Handled as a separate move type to keep logic clean
+            if (!state.replay_mode) {
+                return ValidationResult(false, "REVEAL command only valid in replay mode");
+            }
+            if (move.faceup_level == 1) {
+                state.faceup_level1.insert(state.faceup_level1.begin() + state.last_removed_pos_level1, move.revealed_card);
+                // Remove from deck if it was there
+                for (auto it = state.deck_level1.begin(); it != state.deck_level1.end(); ++it) {
+                    if (it->id == move.revealed_card.id) {
+                        state.deck_level1.erase(it);
+                        break;
+                    }
+                }
+            } else if (move.faceup_level == 2) {
+                state.faceup_level2.insert(state.faceup_level2.begin() + state.last_removed_pos_level2, move.revealed_card);
+                for (auto it = state.deck_level2.begin(); it != state.deck_level2.end(); ++it) {
+                    if (it->id == move.revealed_card.id) {
+                        state.deck_level2.erase(it);
+                        break;
+                    }
+                }
+            } else if (move.faceup_level == 3) {
+                state.faceup_level3.insert(state.faceup_level3.begin() + state.last_removed_pos_level3, move.revealed_card);
+                for (auto it = state.deck_level3.begin(); it != state.deck_level3.end(); ++it) {
+                    if (it->id == move.revealed_card.id) {
+                        state.deck_level3.erase(it);
+                        break;
+                    }
+                }
+            }
+            state.reveal_expected = false;
+            break;
+            
         case INVALID_MOVE:
             return ValidationResult(false, "Attempted to apply an invalid move");
     }
     
-    // Switch to next player
-    state.current_player = 1 - state.current_player;
-    state.move_number++;
+    // Switch to next player if not expecting a reveal
+    if (!state.reveal_expected) {
+        state.current_player = 1 - state.current_player;
+        state.move_number++;
+    }
     
     return ValidationResult(true);
 }
@@ -1149,29 +1199,45 @@ void checkAndAssignNobles(GameState& state, int player_idx, int noble_id, ostrea
     else {
         // Multiple nobles qualify
         if (noble_id == -1) {
-            // No specific noble requested - randomly pick one
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_int_distribution<> dis(0, qualifying_noble_indices.size() - 1);
-            int random_choice = dis(gen);
-            int idx = qualifying_noble_indices[random_choice];
+            // No specific noble requested - pick the one with the smallest ID (deterministic tie-break)
+            int min_id = 9999;
+            int min_idx = -1;
+            for (int idx : qualifying_noble_indices) {
+                if (state.available_nobles[idx].id < min_id) {
+                    min_id = state.available_nobles[idx].id;
+                    min_idx = idx;
+                }
+            }
             
-            err_os << "Multiple nobles qualify, randomly assigning noble " 
-                 << state.available_nobles[idx].id << endl;
+            err_os << "Multiple nobles qualify, assigning noble " << min_id << " (lowest ID)" << endl;
             
-            player.nobles.push_back(state.available_nobles[idx]);
-            player.points += state.available_nobles[idx].points;
-            state.available_nobles.erase(state.available_nobles.begin() + idx);
+            player.nobles.push_back(state.available_nobles[min_idx]);
+            player.points += state.available_nobles[min_idx].points;
+            state.available_nobles.erase(state.available_nobles.begin() + min_idx);
         }
         else {
             // Find the specified noble
+            int found_idx = -1;
             for (size_t i = 0; i < state.available_nobles.size(); i++) {
                 if (state.available_nobles[i].id == noble_id) {
-                    player.nobles.push_back(state.available_nobles[i]);
-                    player.points += state.available_nobles[i].points;
-                    state.available_nobles.erase(state.available_nobles.begin() + i);
+                    // Double check it's one of the qualifying ones
+                    bool qualifies = false;
+                    for (int q_idx : qualifying_noble_indices) {
+                        if ((size_t)q_idx == i) { qualifies = true; break; }
+                    }
+                    if (qualifies) {
+                        found_idx = i;
+                    }
                     break;
                 }
+            }
+            
+            if (found_idx != -1) {
+                player.nobles.push_back(state.available_nobles[found_idx]);
+                player.points += state.available_nobles[found_idx].points;
+                state.available_nobles.erase(state.available_nobles.begin() + found_idx);
+            } else {
+                err_os << "ERROR: Specified noble " << noble_id << " not available or not qualified" << endl;
             }
         }
     }
@@ -1593,8 +1659,8 @@ string playerToJson(const Player& player, int player_id, int viewer_id) {
     }
     ss << "],";
     
-    // Time bank (initial 20 seconds per player)
-    ss << "\"time_bank\":20.0";
+    // Time bank
+    ss << "\"time_bank\":" << player.time_bank;
     
     ss << "}";
     return ss.str();

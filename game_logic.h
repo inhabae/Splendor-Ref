@@ -53,6 +53,7 @@ struct Player {
     std::vector<Card> reserved;   // Reserved cards (max 3)
     std::vector<Noble> nobles;    // Acquired nobles
     int points = 0;          // Victory points
+    double time_bank = 20.0; // Time remaining in seconds
 };
 
 // Main game state
@@ -92,6 +93,7 @@ enum MoveType {
     TAKE_GEMS,
     RESERVE_CARD,
     BUY_CARD,
+    REVEAL_CARD,
     INVALID_MOVE
 };
 
@@ -113,6 +115,10 @@ struct Move {
     
     // Noble selection (for BUY_CARD when multiple nobles qualify)
     int noble_id = -1;  // -1 means no explicit noble selection
+    
+    // For REVEAL_CARD (replay mode only)
+    int faceup_level = -1;  // Which level to reveal to
+    Card revealed_card;     // The card revealed
 };
 
 // Validation result
