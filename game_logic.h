@@ -19,7 +19,11 @@ struct Tokens {
     int green = 0;
     int red = 0;
     int joker = 0;
-    
+
+    Tokens() = default;
+    Tokens(int bl, int bu, int wh, int gr, int re, int jo = 0)
+        : black(bl), blue(bu), white(wh), green(gr), red(re), joker(jo) {}
+
     int total() const {
         return black + blue + white + green + red + joker;
     }

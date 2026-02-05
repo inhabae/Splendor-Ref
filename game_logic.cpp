@@ -392,6 +392,14 @@ ValidationResult validateTakeGems(const GameState& state, const Move& move) {
     if (taken.green > 0) { different_colors++; if (taken.green > max_of_one_color) { max_of_one_color = taken.green; color_with_max = "green"; } }
     if (taken.red > 0) { different_colors++; if (taken.red > max_of_one_color) { max_of_one_color = taken.red; color_with_max = "red"; } }
     
+    // Count how many different colors are available in the bank
+    int colors_available_in_bank = 0;
+    if (state.bank.black > 0) colors_available_in_bank++;
+    if (state.bank.blue > 0) colors_available_in_bank++;
+    if (state.bank.white > 0) colors_available_in_bank++;
+    if (state.bank.green > 0) colors_available_in_bank++;
+    if (state.bank.red > 0) colors_available_in_bank++;
+
     // Case 1: Taking 2 of the same color
     if (total_taken == 2 && different_colors == 1) {
         // Must have 4+ of that color in bank
@@ -406,25 +414,18 @@ ValidationResult validateTakeGems(const GameState& state, const Move& move) {
             return ValidationResult(false, "Need 4+ gems in bank to take 2 of same color");
         }
     }
-    // Case 2: Taking 3 different colors (standard move)
-    else if (total_taken == 3 && different_colors == 3) {
-        // All 3 must be different - already checked by different_colors == 3
-        // Each must be exactly 1
+    // Case 2: Taking different colors
+    else if (total_taken == different_colors) {
+        // Must take min(3, colors_available_in_bank) gems
+        int expected_to_take = (colors_available_in_bank < 3) ? colors_available_in_bank : 3;
+        if (total_taken != expected_to_take) {
+            return ValidationResult(false, "Must take " + to_string(expected_to_take) + " gems when taking different colors (found " + to_string(colors_available_in_bank) + " colors available)");
+        }
+        
+        // Each color must be exactly 1
         if (taken.black > 1 || taken.blue > 1 || taken.white > 1 || 
             taken.green > 1 || taken.red > 1) {
-            return ValidationResult(false, "Can only take 1 of each color when taking 3 different");
-        }
-    }
-    // Case 3: Flexible taking based on availability
-    else if ((total_taken == 2 && different_colors == 2) || 
-             (total_taken == 1 && different_colors == 1)) {
-        // This is allowed when bank has limited colors
-        // Each color must be exactly 1 when taking different colors
-        if (different_colors == 2) {
-            if (taken.black > 1 || taken.blue > 1 || taken.white > 1 || 
-                taken.green > 1 || taken.red > 1) {
-                return ValidationResult(false, "Can only take 1 of each color when taking different colors");
-            }
+            return ValidationResult(false, "Can only take 1 of each color when taking different colors");
         }
     }
     else {
@@ -578,7 +579,7 @@ ValidationResult validateReserveCard(const GameState& state, const Move& move) {
     if (returned.red > player.tokens.red) {
         return ValidationResult(false, "Cannot return more red gems than you have");
     }
-    if (returned.joker > player.tokens.joker) {
+    if (returned.joker > player.tokens.joker + joker_gained) {
         return ValidationResult(false, "Cannot return more joker gems than you have");
     }
     
