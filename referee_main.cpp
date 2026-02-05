@@ -1,6 +1,8 @@
 // Referee - Default Mode
 // This executable runs the normal referee mode with random seed
 
+#include <chrono>
+#include <iomanip>
 #include "game_logic.h"
 
 using std::string;
@@ -69,18 +71,19 @@ int main(int argc, char* argv[]) {
     }
     cerr << "Game state validated successfully" << endl;
     
-    // Output initial game states
-    cerr << "\n=== Initial Game State for Player 1 ===" << endl;
+    // Output initial game states to both players
     printJsonGameState(game, 1);
-    
-    cerr << "\n=== Initial Game State for Player 2 ===" << endl;
     printJsonGameState(game, 2);
     
     cerr << "\n=== Starting Game Loop ===" << endl;
     
     while (!isGameOver(game)) {
         int current = game.current_player;
-        cerr << "\nWaiting for Player " << (current + 1) << " move..." << endl;
+        cerr << "\nWaiting for Player " << (current + 1) << " move (Bank: " 
+             << std::fixed << std::setprecision(3) << game.players[current].time_bank << "s)..." << endl;
+        
+        // Start timer
+        auto start_time = std::chrono::steady_clock::now();
         
         // Read move from STDIN
         string move_string;
@@ -89,7 +92,26 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-        cerr << "Received move: \"" << move_string << "\"" << endl;
+        // Stop timer and update bank
+        auto end_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed = end_time - start_time;
+        
+        game.players[current].time_bank -= elapsed.count();
+        
+        // Check for timeout
+        if (game.players[current].time_bank < 0) {
+            cerr << "ERROR: Player " << (current + 1) << " timed out!" << endl;
+            cout << "WINNER: Player " << (2 - current) << endl;
+            cout << "REASON: Player " << (current + 1) << " timed out (" 
+                 << std::fixed << std::setprecision(3) << game.players[current].time_bank << "s)" << endl;
+            return 0;
+        }
+        
+        // Add move increment
+        game.players[current].time_bank += TIME_INCREMENT;
+        
+        cerr << "Received move: \"" << move_string << "\" (Took " 
+             << std::fixed << std::setprecision(3) << elapsed.count() << "s)" << endl;
         
         // REVEAL commands not allowed in normal mode
         if (move_string.find("REVEAL") == 0) {
@@ -134,11 +156,8 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         
-        // Output updated game state to both players
-        cerr << "\n=== Game State for Player 1 ===" << endl;
+        // Output updated game states to both players
         printJsonGameState(game, 1);
-        
-        cerr << "\n=== Game State for Player 2 ===" << endl;
         printJsonGameState(game, 2);
     }
     

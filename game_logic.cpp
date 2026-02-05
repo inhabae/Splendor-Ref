@@ -446,6 +446,23 @@ ValidationResult validateTakeGems(const GameState& state, const Move& move) {
     if (state.bank.green > 0) colors_available_in_bank++;
     if (state.bank.red > 0) colors_available_in_bank++;
 
+    // Check that bank has enough of each color
+    if (taken.black > state.bank.black) {
+        return ValidationResult(false, "Not enough black gems in bank");
+    }
+    if (taken.blue > state.bank.blue) {
+        return ValidationResult(false, "Not enough blue gems in bank");
+    }
+    if (taken.white > state.bank.white) {
+        return ValidationResult(false, "Not enough white gems in bank");
+    }
+    if (taken.green > state.bank.green) {
+        return ValidationResult(false, "Not enough green gems in bank");
+    }
+    if (taken.red > state.bank.red) {
+        return ValidationResult(false, "Not enough red gems in bank");
+    }
+
     // Case 1: Taking 2 of the same color
     if (total_taken == 2 && different_colors == 1) {
         // Must have 4+ of that color in bank
@@ -476,23 +493,6 @@ ValidationResult validateTakeGems(const GameState& state, const Move& move) {
     }
     else {
         return ValidationResult(false, "Invalid gem taking pattern");
-    }
-    
-    // Check that bank has enough of each color
-    if (taken.black > state.bank.black) {
-        return ValidationResult(false, "Not enough black gems in bank");
-    }
-    if (taken.blue > state.bank.blue) {
-        return ValidationResult(false, "Not enough blue gems in bank");
-    }
-    if (taken.white > state.bank.white) {
-        return ValidationResult(false, "Not enough white gems in bank");
-    }
-    if (taken.green > state.bank.green) {
-        return ValidationResult(false, "Not enough green gems in bank");
-    }
-    if (taken.red > state.bank.red) {
-        return ValidationResult(false, "Not enough red gems in bank");
     }
     
     // Check gem limit after taking and returning
@@ -857,13 +857,17 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                         state.last_removed_pos_level1 = i;  // Track position for REVEAL
                         state.faceup_level1.erase(state.faceup_level1.begin() + i);
                         
-                        // Replace with deck card if available (unless in replay mode)
+                        // Replace with deck card if available
                         if (!state.replay_mode && !state.deck_level1.empty()) {
                             state.faceup_level1.insert(state.faceup_level1.begin() + i, state.deck_level1.back());
                             state.deck_level1.pop_back();
                         } else if (state.replay_mode && !state.deck_level1.empty()) {
+                            state.faceup_level1.insert(state.faceup_level1.begin() + i, Card{0, 1, 0, "", {}}); // Placeholder
                             state.reveal_expected = true;
                             err_os << "\n>>> PROMPT: Please REVEAL a new level1 card <<<" << endl;
+                        } else {
+                            // Deck empty - insert placeholder to keep size 4
+                            state.faceup_level1.insert(state.faceup_level1.begin() + i, Card{0, 1, 0, "", {}});
                         }
                         found = true;
                         break;
@@ -881,8 +885,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                                 state.faceup_level2.insert(state.faceup_level2.begin() + i, state.deck_level2.back());
                                 state.deck_level2.pop_back();
                             } else if (state.replay_mode && !state.deck_level2.empty()) {
+                                state.faceup_level2.insert(state.faceup_level2.begin() + i, Card{0, 2, 0, "", {}}); // Placeholder
                                 state.reveal_expected = true;
                                 err_os << "\n>>> PROMPT: Please REVEAL a new level2 card <<<" << endl;
+                            } else {
+                                // Deck empty
+                                state.faceup_level2.insert(state.faceup_level2.begin() + i, Card{0, 2, 0, "", {}});
                             }
                             found = true;
                             break;
@@ -901,8 +909,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                                 state.faceup_level3.insert(state.faceup_level3.begin() + i, state.deck_level3.back());
                                 state.deck_level3.pop_back();
                             } else if (state.replay_mode && !state.deck_level3.empty()) {
+                                state.faceup_level3.insert(state.faceup_level3.begin() + i, Card{0, 3, 0, "", {}}); // Placeholder
                                 state.reveal_expected = true;
                                 err_os << "\n>>> PROMPT: Please REVEAL a new level3 card <<<" << endl;
+                            } else {
+                                // Deck empty
+                                state.faceup_level3.insert(state.faceup_level3.begin() + i, Card{0, 3, 0, "", {}});
                             }
                             found = true;
                             break;
@@ -1087,8 +1099,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                             state.faceup_level1.insert(state.faceup_level1.begin() + faceup_idx, state.deck_level1.back());
                             state.deck_level1.pop_back();
                         } else if (state.replay_mode && !state.deck_level1.empty()) {
+                            state.faceup_level1.insert(state.faceup_level1.begin() + faceup_idx, Card{0, 1, 0, "", {}}); // Placeholder
                             state.reveal_expected = true;
                             err_os << "\n>>> PROMPT: Please REVEAL a new level1 card <<<" << endl;
+                        } else {
+                            // Deck empty - insert placeholder
+                            state.faceup_level1.insert(state.faceup_level1.begin() + faceup_idx, Card{0, 1, 0, "", {}});
                         }
                     } else if (faceup_level == 2) {
                         state.last_removed_pos_level2 = faceup_idx;  // Track position for REVEAL
@@ -1097,8 +1113,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                             state.faceup_level2.insert(state.faceup_level2.begin() + faceup_idx, state.deck_level2.back());
                             state.deck_level2.pop_back();
                         } else if (state.replay_mode && !state.deck_level2.empty()) {
+                            state.faceup_level2.insert(state.faceup_level2.begin() + faceup_idx, Card{0, 2, 0, "", {}}); // Placeholder
                             state.reveal_expected = true;
                             err_os << "\n>>> PROMPT: Please REVEAL a new level2 card <<<" << endl;
+                        } else {
+                            // Deck empty
+                            state.faceup_level2.insert(state.faceup_level2.begin() + faceup_idx, Card{0, 2, 0, "", {}});
                         }
                     } else if (faceup_level == 3) {
                         state.last_removed_pos_level3 = faceup_idx;  // Track position for REVEAL
@@ -1107,8 +1127,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                             state.faceup_level3.insert(state.faceup_level3.begin() + faceup_idx, state.deck_level3.back());
                             state.deck_level3.pop_back();
                         } else if (state.replay_mode && !state.deck_level3.empty()) {
+                            state.faceup_level3.insert(state.faceup_level3.begin() + faceup_idx, Card{0, 3, 0, "", {}}); // Placeholder
                             state.reveal_expected = true;
                             err_os << "\n>>> PROMPT: Please REVEAL a new level3 card <<<" << endl;
+                        } else {
+                            // Deck empty
+                            state.faceup_level3.insert(state.faceup_level3.begin() + faceup_idx, Card{0, 3, 0, "", {}});
                         }
                     }
                 }
@@ -1126,7 +1150,13 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                 return ValidationResult(false, "REVEAL command only valid in replay mode");
             }
             if (move.faceup_level == 1) {
-                state.faceup_level1.insert(state.faceup_level1.begin() + state.last_removed_pos_level1, move.revealed_card);
+                // Replace placeholder at the tracked position
+                if (state.last_removed_pos_level1 < (int)state.faceup_level1.size()) {
+                    state.faceup_level1[state.last_removed_pos_level1] = move.revealed_card;
+                } else {
+                    state.faceup_level1.push_back(move.revealed_card);
+                }
+                
                 // Remove from deck if it was there
                 for (auto it = state.deck_level1.begin(); it != state.deck_level1.end(); ++it) {
                     if (it->id == move.revealed_card.id) {
@@ -1135,7 +1165,11 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                     }
                 }
             } else if (move.faceup_level == 2) {
-                state.faceup_level2.insert(state.faceup_level2.begin() + state.last_removed_pos_level2, move.revealed_card);
+                if (state.last_removed_pos_level2 < (int)state.faceup_level2.size()) {
+                    state.faceup_level2[state.last_removed_pos_level2] = move.revealed_card;
+                } else {
+                    state.faceup_level2.push_back(move.revealed_card);
+                }
                 for (auto it = state.deck_level2.begin(); it != state.deck_level2.end(); ++it) {
                     if (it->id == move.revealed_card.id) {
                         state.deck_level2.erase(it);
@@ -1143,7 +1177,11 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                     }
                 }
             } else if (move.faceup_level == 3) {
-                state.faceup_level3.insert(state.faceup_level3.begin() + state.last_removed_pos_level3, move.revealed_card);
+                if (state.last_removed_pos_level3 < (int)state.faceup_level3.size()) {
+                    state.faceup_level3[state.last_removed_pos_level3] = move.revealed_card;
+                } else {
+                    state.faceup_level3.push_back(move.revealed_card);
+                }
                 for (auto it = state.deck_level3.begin(); it != state.deck_level3.end(); ++it) {
                     if (it->id == move.revealed_card.id) {
                         state.deck_level3.erase(it);

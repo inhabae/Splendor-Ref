@@ -11,6 +11,10 @@
 #include <sstream>
 #include <ctime>
 
+// Constants for timing
+const double INITIAL_TIME_BANK = 300.0; // 5 minutes initial time bank
+const double TIME_INCREMENT = 1.0;
+
 // Struct to represent gem/token counts
 struct Tokens {
     int black = 0;
@@ -53,7 +57,7 @@ struct Player {
     std::vector<Card> reserved;   // Reserved cards (max 3)
     std::vector<Noble> nobles;    // Acquired nobles
     int points = 0;          // Victory points
-    double time_bank = 20.0; // Time remaining in seconds
+    double time_bank = INITIAL_TIME_BANK; // Time remaining in seconds
 };
 
 // Main game state
