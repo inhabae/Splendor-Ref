@@ -40,6 +40,9 @@ int main(int argc, char* argv[]) {
     GameState game;
     game.replay_mode = false;
     
+    // Buffer for logging to prevent engines from reading game info during the match
+    stringstream log_ss;
+
     // Paths can be customized via environment variables or CLI in the future
     const string cards_path = "cards.json";
     const string nobles_path = "nobles.json";
@@ -61,7 +64,14 @@ int main(int argc, char* argv[]) {
         seed = static_cast<unsigned int>(atoi(argv[1]));
     }
     
+    if (seed == 0) {
+        seed = static_cast<unsigned int>(time(nullptr));
+    }
+
     initializeGame(game, seed, cards_path, nobles_path);
+    
+    // Log the seed at the top
+    log_ss << "Seed: " << seed << endl;
     
     // Validate initial game state
     ValidationResult validation = validateGameState(game);
@@ -71,6 +81,9 @@ int main(int argc, char* argv[]) {
     }
     cerr << "Game state validated successfully" << endl;
     
+    // Log initial state
+    log_ss << "Initial State: " << gameStateToJson(game, 0) << endl;
+
     // Output initial game states to both players
     printJsonGameState(game, 1);
     printJsonGameState(game, 2);
@@ -101,9 +114,19 @@ int main(int argc, char* argv[]) {
         // Check for timeout
         if (game.players[current].time_bank < 0) {
             cerr << "ERROR: Player " << (current + 1) << " timed out!" << endl;
+            log_ss << "ERROR: Player " << (current + 1) << " timed out!" << endl;
+            log_ss << "Game Result: Player " << (2 - current) << " wins! (Opponent timeout)" << endl;
+            
             cout << "WINNER: Player " << (2 - current) << endl;
             cout << "REASON: Player " << (current + 1) << " timed out (" 
                  << std::fixed << std::setprecision(3) << game.players[current].time_bank << "s)" << endl;
+            
+            // Write log and exit
+            ofstream log_file("game.log");
+            if (log_file.is_open()) {
+                log_file << log_ss.str();
+                log_file.close();
+            }
             return 0;
         }
         
@@ -113,6 +136,9 @@ int main(int argc, char* argv[]) {
         cerr << "Received move: \"" << move_string << "\" (Took " 
              << std::fixed << std::setprecision(3) << elapsed.count() << "s)" << endl;
         
+        // Log the move
+        log_ss << "Player " << (current + 1) << ": " << move_string << endl;
+
         // REVEAL commands not allowed in normal mode
         if (move_string.find("REVEAL") == 0) {
             cerr << "ERROR: REVEAL command only valid in replay mode" << endl;
@@ -135,9 +161,19 @@ int main(int argc, char* argv[]) {
             cerr << "ERROR: Invalid move - " << move_valid.error_message << endl;
             cerr << "Player " << (current + 1) << " loses by invalid move" << endl;
             
+            log_ss << "ERROR: Invalid move from Player " << (current + 1) << ": " << move_valid.error_message << endl;
+            log_ss << "Game Result: Player " << (2 - current) << " wins! (Opponent invalid move)" << endl;
+
             // Output result: opponent wins
             cout << "WINNER: Player " << (2 - current) << endl;
             cout << "REASON: Player " << (current + 1) << " made invalid move (" << move_valid.error_message << ")" << endl;
+            
+            // Write log and exit
+            ofstream log_file("game.log");
+            if (log_file.is_open()) {
+                log_file << log_ss.str();
+                log_file.close();
+            }
             return 0;
         }
         
@@ -148,6 +184,9 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         cerr << "Move applied successfully" << endl;
+
+        // Log the state after the move to capture any revealed cards
+        log_ss << "Post-Move State: " << gameStateToJson(game, 0) << endl;
         
         // Validate game state after move
         ValidationResult validation_after = validateGameState(game);
@@ -175,9 +214,28 @@ int main(int argc, char* argv[]) {
     if (winner == -1) {
         cout << "RESULT: TIE" << endl;
         cerr << "Game ended in a tie" << endl;
+        log_ss << "RESULT: TIE" << endl;
     } else {
         cout << "WINNER: Player " << (winner + 1) << endl;
         cerr << "Player " << (winner + 1) << " wins!" << endl;
+        log_ss << "WINNER: Player " << (winner + 1) << endl;
+    }
+
+    // Reveal the seed to engines at the end of the game
+    cout << "SEED: " << seed << endl;
+
+    log_ss << "Final Scores - P1: " << game.players[0].points << ", P2: " << game.players[1].points << endl;
+    if (winner == -1) {
+        log_ss << "Game Result: TIE" << endl;
+    } else {
+        log_ss << "Game Result: Player " << (winner + 1) << " wins!" << endl;
+    }
+    
+    // Write the buffered log to game.log after the game is over
+    ofstream log_file("game.log");
+    if (log_file.is_open()) {
+        log_file << log_ss.str();
+        log_file.close();
     }
     
     return 0;
