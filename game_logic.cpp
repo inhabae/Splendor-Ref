@@ -110,7 +110,7 @@ ValidationResult validateGameState(const GameState& state) {
     
     // Check for duplicates
     for (const auto& pair : card_count) {
-        if (pair.second > 1) {
+        if (pair.first != 0 && pair.second > 1) {
             return ValidationResult(false, "Card ID " + to_string(pair.first) + 
                                   " appears " + to_string(pair.second) + " times");
         }
@@ -1993,7 +1993,11 @@ bool processRevealCommand(GameState& state, const string& line, vector<Card>& al
     }
     
     if (insert_pos >= 0) {
-        faceup->insert(faceup->begin() + insert_pos, card);
+        if (insert_pos < (int)faceup->size() && faceup->at(insert_pos).id == 0) {
+            faceup->at(insert_pos) = card;
+        } else {
+            faceup->insert(faceup->begin() + insert_pos, card);
+        }
     } else {
         faceup->push_back(card);
     }
