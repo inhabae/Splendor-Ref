@@ -44,8 +44,8 @@ int main(int argc, char* argv[]) {
     stringstream log_ss;
 
     // Paths can be customized via environment variables or CLI in the future
-    const string cards_path = "cards.json";
-    const string nobles_path = "nobles.json";
+    const string cards_path = "data/cards.json";
+    const string nobles_path = "data/nobles.json";
     
     // Load all cards and nobles to check if they exist
     vector<Card> all_cards = loadCards(cards_path);

@@ -537,23 +537,14 @@ ValidationResult validateReserveCard(const GameState& state, const Move& move) {
     }
     else if (card_id == 91) {
         // Blind reserve from level 1 deck
-        if (state.deck_level1.empty()) {
-            return ValidationResult(false, "Level 1 deck is empty");
-        }
         card_found = true;
     }
     else if (card_id == 92) {
         // Blind reserve from level 2 deck
-        if (state.deck_level2.empty()) {
-            return ValidationResult(false, "Level 2 deck is empty");
-        }
         card_found = true;
     }
     else if (card_id == 93) {
         // Blind reserve from level 3 deck
-        if (state.deck_level3.empty()) {
-            return ValidationResult(false, "Level 3 deck is empty");
-        }
         card_found = true;
     }
     else {
@@ -1678,11 +1669,6 @@ string gameStateToJson(const GameState& state, int viewer_id) {
     
     ss << "},";
     
-    // Deck sizes (included for engine visibility)
-    ss << "\"deck_level1_size\":" << state.deck_level1.size() << ",";
-    ss << "\"deck_level2_size\":" << state.deck_level2.size() << ",";
-    ss << "\"deck_level3_size\":" << state.deck_level3.size() << ",";
-    
     // Nobles (just IDs)
     ss << "\"nobles\":[";
     for (size_t i = 0; i < state.available_nobles.size(); i++) {
@@ -2014,9 +2000,9 @@ std::vector<Move> findAllValidMoves(const GameState& state) {
         for (const auto& c : state.faceup_level1) if (c.id > 0) handleRes(c.id);
         for (const auto& c : state.faceup_level2) if (c.id > 0) handleRes(c.id);
         for (const auto& c : state.faceup_level3) if (c.id > 0) handleRes(c.id);
-        if (!state.deck_level1.empty()) handleRes(91);
-        if (!state.deck_level2.empty()) handleRes(92);
-        if (!state.deck_level3.empty()) handleRes(93);
+        handleRes(91);
+        handleRes(92);
+        handleRes(93);
     }
 
     // --- TAKE ---
@@ -2197,16 +2183,6 @@ GameState parseJson(const std::string& json, const std::vector<Card>& all_c, con
             if (pts_p != std::string::npos) p.points = std::stoi(p_json.substr(pts_p + 9, p_json.find_first_of(",}", pts_p + 9) - (pts_p + 9)));
         }
     }
-    
-    auto get_val = [&](const std::string& k) {
-        size_t p = json.find("\"" + k + "\":");
-        if (p == std::string::npos) return 0;
-        size_t e = json.find_first_of(",}", p + k.length() + 3);
-        try { return std::stoi(json.substr(p + k.length() + 3, e - (p + k.length() + 3))); } catch(...) { return 0; }
-    };
-    st.deck_level1.assign(get_val("deck_level1_size"), {0, 1, 0, "", {}});
-    st.deck_level2.assign(get_val("deck_level2_size"), {0, 2, 0, "", {}});
-    st.deck_level3.assign(get_val("deck_level3_size"), {0, 3, 0, "", {}});
     
     return st;
 }
