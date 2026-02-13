@@ -31,7 +31,66 @@ struct Tokens {
     int total() const {
         return black + blue + white + green + red + joker;
     }
+
+    bool operator==(const Tokens& other) const {
+        return black == other.black && blue == other.blue && white == other.white &&
+               green == other.green && red == other.red && joker == other.joker;
+    }
+
+    bool operator!=(const Tokens& other) const {
+        return !(*this == other);
+    }
+
+    Tokens& operator+=(const Tokens& other) {
+        black += other.black;
+        blue += other.blue;
+        white += other.white;
+        green += other.green;
+        red += other.red;
+        joker += other.joker;
+        return *this;
+    }
+
+    Tokens& operator-=(const Tokens& other) {
+        black -= other.black;
+        blue -= other.blue;
+        white -= other.white;
+        green -= other.green;
+        red -= other.red;
+        joker -= other.joker;
+        return *this;
+    }
+
+    int& operator[](const std::string& color) {
+        if (color == "black") return black;
+        if (color == "blue") return blue;
+        if (color == "white") return white;
+        if (color == "green") return green;
+        if (color == "red") return red;
+        if (color == "joker") return joker;
+        static int dummy; return dummy; // Should handle error better
+    }
+
+    const int& operator[](const std::string& color) const {
+        if (color == "black") return black;
+        if (color == "blue") return blue;
+        if (color == "white") return white;
+        if (color == "green") return green;
+        if (color == "red") return red;
+        if (color == "joker") return joker;
+        static const int dummy = 0; return dummy;
+    }
 };
+
+inline Tokens operator+(Tokens lhs, const Tokens& rhs) {
+    lhs += rhs;
+    return lhs;
+}
+
+inline Tokens operator-(Tokens lhs, const Tokens& rhs) {
+    lhs -= rhs;
+    return lhs;
+}
 
 // Struct for a development card
 struct Card {
@@ -40,6 +99,16 @@ struct Card {
     int points;
     std::string color;
     Tokens cost;
+
+    Tokens getEffectiveCost(const Tokens& bonuses) const {
+        Tokens effective;
+        effective.black = std::max(0, cost.black - bonuses.black);
+        effective.blue = std::max(0, cost.blue - bonuses.blue);
+        effective.white = std::max(0, cost.white - bonuses.white);
+        effective.green = std::max(0, cost.green - bonuses.green);
+        effective.red = std::max(0, cost.red - bonuses.red);
+        return effective;
+    }
 };
 
 // Struct for a noble
@@ -78,11 +147,44 @@ struct GameState {
     
     int current_player = 0;           // Current player (0 or 1)
     int move_number = 0;              // Move counter
+    int consecutive_passes = 0;       // Count consecutive PASS moves
     
     // Position tracking for REVEAL command in replay mode
     int last_removed_pos_level1 = -1;  // Last removed position from level1
     int last_removed_pos_level2 = -1;  // Last removed position from level2
     int last_removed_pos_level3 = -1;  // Last removed position from level3
+
+    std::vector<Card>& getFaceup(int level) {
+        return (level == 1) ? faceup_level1 : (level == 2) ? faceup_level2 : faceup_level3;
+    }
+
+    std::vector<Card>& getDeck(int level) {
+        return (level == 1) ? deck_level1 : (level == 2) ? deck_level2 : deck_level3;
+    }
+
+    int& getLastRemovedPos(int level) {
+        return (level == 1) ? last_removed_pos_level1 : (level == 2) ? last_removed_pos_level2 : last_removed_pos_level3;
+    }
+
+    struct CardLocation {
+        bool found;
+        int level;
+        int index;
+
+        CardLocation(bool f = false, int l = 0, int i = -1) 
+            : found(f), level(l), index(i) {}
+    };
+
+    CardLocation findCardInFaceup(int card_id) const {
+        if (card_id <= 0) return {false, 0, -1};
+        for (int l = 1; l <= 3; l++) {
+            const auto& row = (l == 1) ? faceup_level1 : (l == 2) ? faceup_level2 : faceup_level3;
+            for (size_t i = 0; i < row.size(); i++) {
+                if (row[i].id == card_id) return {true, l, (int)i};
+            }
+        }
+        return {false, 0, -1};
+    }
     
     // Track blind reserve (91/92/93) in replay mode
     int pending_blind_reserve_player = -1;  // Which player has pending blind reserve (-1 = none)
@@ -98,6 +200,7 @@ enum MoveType {
     RESERVE_CARD,
     BUY_CARD,
     REVEAL_CARD,
+    PASS_TURN,
     INVALID_MOVE
 };
 
@@ -147,7 +250,10 @@ void checkAndAssignNobles(GameState& state, int player_idx, int noble_id = -1, s
 bool isGameOver(const GameState& state);
 int determineWinner(const GameState& state);
 
-Tokens parseTokens(const std::string& json_section);
+// Engine helper functions
+std::vector<Move> findAllValidMoves(const GameState& state);
+std::string moveToString(const Move& m);
+GameState parseJson(const std::string& json, const std::vector<Card>& all_c, const std::vector<Noble>& all_n);
 Tokens calculateAutoPayment(const Tokens& effective_cost, const Tokens& player_tokens);
 Card loadCardById(int card_id, const std::vector<Card>& all_cards);
 std::vector<Card> loadCards(const std::string& filename, std::ostream& err_os = std::cerr);

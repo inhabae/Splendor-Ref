@@ -45,32 +45,15 @@ using std::atoi;
 
 // Game state validation - checks if current state is valid
 ValidationResult validateGameState(const GameState& state) {
-    // 1. Check total gem count (25 total: 4 of each color + 5 joker)
-    int total_gems = state.bank.total() + state.players[0].tokens.total() + state.players[1].tokens.total();
+    // 1. Check total gem counts (4 of each color + 5 joker = 25 total)
+    Tokens total_gems = state.bank + state.players[0].tokens + state.players[1].tokens;
     
-    if (total_gems != 25) {
-        return ValidationResult(false, "Total gem count is " + to_string(total_gems) + ", expected 25");
-    }
-    
-    // Check individual color totals
-    if (state.bank.black + state.players[0].tokens.black + state.players[1].tokens.black != 4) {
-        return ValidationResult(false, "Black gem count incorrect");
-    }
-    if (state.bank.blue + state.players[0].tokens.blue + state.players[1].tokens.blue != 4) {
-        return ValidationResult(false, "Blue gem count incorrect");
-    }
-    if (state.bank.white + state.players[0].tokens.white + state.players[1].tokens.white != 4) {
-        return ValidationResult(false, "White gem count incorrect");
-    }
-    if (state.bank.green + state.players[0].tokens.green + state.players[1].tokens.green != 4) {
-        return ValidationResult(false, "Green gem count incorrect");
-    }
-    if (state.bank.red + state.players[0].tokens.red + state.players[1].tokens.red != 4) {
-        return ValidationResult(false, "Red gem count incorrect");
-    }
-    if (state.bank.joker + state.players[0].tokens.joker + state.players[1].tokens.joker != 5) {
-        return ValidationResult(false, "Joker gem count incorrect");
-    }
+    if (total_gems.black != 4) return ValidationResult(false, "Black gem count incorrect");
+    if (total_gems.blue != 4) return ValidationResult(false, "Blue gem count incorrect");
+    if (total_gems.white != 4) return ValidationResult(false, "White gem count incorrect");
+    if (total_gems.green != 4) return ValidationResult(false, "Green gem count incorrect");
+    if (total_gems.red != 4) return ValidationResult(false, "Red gem count incorrect");
+    if (total_gems.joker != 5) return ValidationResult(false, "Joker gem count incorrect");
     
     // 2. Check no player has more than 10 gems
     for (int i = 0; i < 2; i++) {
@@ -120,17 +103,10 @@ ValidationResult validateGameState(const GameState& state) {
     for (int i = 0; i < 2; i++) {
         Tokens expected_bonuses;
         for (const Card& card : state.players[i].cards) {
-            if (card.color == "black") expected_bonuses.black++;
-            else if (card.color == "blue") expected_bonuses.blue++;
-            else if (card.color == "white") expected_bonuses.white++;
-            else if (card.color == "green") expected_bonuses.green++;
-            else if (card.color == "red") expected_bonuses.red++;
+            expected_bonuses[card.color]++;
         }
         
-        const Tokens& actual = state.players[i].bonuses;
-        if (actual.black != expected_bonuses.black || actual.blue != expected_bonuses.blue ||
-            actual.white != expected_bonuses.white || actual.green != expected_bonuses.green ||
-            actual.red != expected_bonuses.red || actual.joker != 0) {
+        if (state.players[i].bonuses != expected_bonuses) {
             return ValidationResult(false, "Player " + to_string(i+1) + " bonuses don't match purchased cards");
         }
     }
@@ -228,25 +204,13 @@ pair<Move, ValidationResult> parseMove(const string& move_string, int player_id)
             
             // Parse gems taken (between TAKE and RETURN/end)
             for (size_t i = 1; i < return_idx; i++) {
-                string color = tokens[i];
-                if (color == "black") move.gems_taken.black++;
-                else if (color == "blue") move.gems_taken.blue++;
-                else if (color == "white") move.gems_taken.white++;
-                else if (color == "green") move.gems_taken.green++;
-                else if (color == "red") move.gems_taken.red++;
-                else if (color == "joker") move.gems_taken.joker++;
+                move.gems_taken[tokens[i]]++;
             }
             
             // Parse gems returned (after RETURN)
             if (return_idx < tokens.size()) {
                 for (size_t i = return_idx + 1; i < tokens.size(); i++) {
-                    string color = tokens[i];
-                    if (color == "black") move.gems_returned.black++;
-                    else if (color == "blue") move.gems_returned.blue++;
-                    else if (color == "white") move.gems_returned.white++;
-                    else if (color == "green") move.gems_returned.green++;
-                    else if (color == "red") move.gems_returned.red++;
-                    else if (color == "joker") move.gems_returned.joker++;
+                    move.gems_returned[tokens[i]]++;
                 }
             }
             
@@ -257,20 +221,18 @@ pair<Move, ValidationResult> parseMove(const string& move_string, int player_id)
                 return {move, ValidationResult(false, "RESERVE missing card_id")};
             }
             
-            move.card_id = std::stoi(tokens[1]);
+            try {
+                move.card_id = std::stoi(tokens[1]);
+            } catch (...) {
+                return {move, ValidationResult(false, "Invalid card ID in RESERVE: " + tokens[1])};
+            }
             
             // Find if there's a RETURN clause
             for (size_t i = 2; i < tokens.size(); i++) {
                 if (tokens[i] == "RETURN") {
                     // Parse gems returned (after RETURN)
                     for (size_t j = i + 1; j < tokens.size(); j++) {
-                        string color = tokens[j];
-                        if (color == "black") move.gems_returned.black++;
-                        else if (color == "blue") move.gems_returned.blue++;
-                        else if (color == "white") move.gems_returned.white++;
-                        else if (color == "green") move.gems_returned.green++;
-                        else if (color == "red") move.gems_returned.red++;
-                        else if (color == "joker") move.gems_returned.joker++;
+                        move.gems_returned[tokens[j]]++;
                     }
                     break;
                 }
@@ -310,18 +272,15 @@ pair<Move, ValidationResult> parseMove(const string& move_string, int player_id)
                 move.auto_payment = false;
                 size_t payment_end = (noble_idx < tokens.size()) ? noble_idx : tokens.size();
                 for (size_t i = using_idx + 1; i < payment_end; i++) {
-                    string color = tokens[i];
-                    if (color == "black") move.payment.black++;
-                    else if (color == "blue") move.payment.blue++;
-                    else if (color == "white") move.payment.white++;
-                    else if (color == "green") move.payment.green++;
-                    else if (color == "red") move.payment.red++;
-                    else if (color == "joker") move.payment.joker++;
+                    move.payment[tokens[i]]++;
                 }
             } else {
                 // No USING - auto-calculate payment
                 move.auto_payment = true;
             }
+            
+        } else if (action == "PASS") {
+            move.type = PASS_TURN;
             
         } else {
             return {move, ValidationResult(false, "Unknown move action: " + action)};
@@ -364,6 +323,9 @@ ValidationResult validateMove(const GameState& state, const Move& move) {
             
         case BUY_CARD:
             return validateBuyCard(state, move);
+            
+        case PASS_TURN:
+            return ValidationResult(true);
             
         default:
             return ValidationResult(false, "Invalid move type");
@@ -816,32 +778,12 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
     switch (move.type) {
         case TAKE_GEMS:
             // Add gems to player, remove from bank
-            player.tokens.black += move.gems_taken.black;
-            player.tokens.blue += move.gems_taken.blue;
-            player.tokens.white += move.gems_taken.white;
-            player.tokens.green += move.gems_taken.green;
-            player.tokens.red += move.gems_taken.red;
-            
-            state.bank.black -= move.gems_taken.black;
-            state.bank.blue -= move.gems_taken.blue;
-            state.bank.white -= move.gems_taken.white;
-            state.bank.green -= move.gems_taken.green;
-            state.bank.red -= move.gems_taken.red;
+            player.tokens += move.gems_taken;
+            state.bank -= move.gems_taken;
             
             // Return gems if any
-            player.tokens.black -= move.gems_returned.black;
-            player.tokens.blue -= move.gems_returned.blue;
-            player.tokens.white -= move.gems_returned.white;
-            player.tokens.green -= move.gems_returned.green;
-            player.tokens.red -= move.gems_returned.red;
-            player.tokens.joker -= move.gems_returned.joker;
-            
-            state.bank.black += move.gems_returned.black;
-            state.bank.blue += move.gems_returned.blue;
-            state.bank.white += move.gems_returned.white;
-            state.bank.green += move.gems_returned.green;
-            state.bank.red += move.gems_returned.red;
-            state.bank.joker += move.gems_returned.joker;
+            player.tokens -= move.gems_returned;
+            state.bank += move.gems_returned;
             break;
             
         case RESERVE_CARD: {
@@ -994,6 +936,10 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
             break;
         }
             
+        case PASS_TURN:
+            // No action needed other than switching players
+            break;
+            
         case BUY_CARD: {
             Card* target_card = nullptr;
             bool is_reserved = false;
@@ -1050,39 +996,19 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
                 // Calculate payment if auto_payment was used
                 Tokens payment = move.payment;
                 if (move.auto_payment) {
-                    Tokens effective_cost;
-                    effective_cost.black = max(0, purchased_card.cost.black - player.bonuses.black);
-                    effective_cost.blue = max(0, purchased_card.cost.blue - player.bonuses.blue);
-                    effective_cost.white = max(0, purchased_card.cost.white - player.bonuses.white);
-                    effective_cost.green = max(0, purchased_card.cost.green - player.bonuses.green);
-                    effective_cost.red = max(0, purchased_card.cost.red - player.bonuses.red);
+                    Tokens effective_cost = purchased_card.getEffectiveCost(player.bonuses);
                     payment = calculateAutoPayment(effective_cost, player.tokens);
                 }
                 
                 // Remove payment from player, add to bank
-                player.tokens.black -= payment.black;
-                player.tokens.blue -= payment.blue;
-                player.tokens.white -= payment.white;
-                player.tokens.green -= payment.green;
-                player.tokens.red -= payment.red;
-                player.tokens.joker -= payment.joker;
-                
-                state.bank.black += payment.black;
-                state.bank.blue += payment.blue;
-                state.bank.white += payment.white;
-                state.bank.green += payment.green;
-                state.bank.red += payment.red;
-                state.bank.joker += payment.joker;
+                player.tokens -= payment;
+                state.bank += payment;
                 
                 // Add card to player's tableau
                 player.cards.push_back(purchased_card);
                 
                 // Update bonuses
-                if (purchased_card.color == "black") player.bonuses.black++;
-                else if (purchased_card.color == "blue") player.bonuses.blue++;
-                else if (purchased_card.color == "white") player.bonuses.white++;
-                else if (purchased_card.color == "green") player.bonuses.green++;
-                else if (purchased_card.color == "red") player.bonuses.red++;
+                player.bonuses[purchased_card.color]++;
                 
                 // Update points
                 player.points += purchased_card.points;
@@ -1144,53 +1070,30 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
             }
             break;
         }
-        case REVEAL_CARD:
-            // Handled as a separate move type to keep logic clean
-            if (!state.replay_mode) {
-                return ValidationResult(false, "REVEAL command only valid in replay mode");
+        case REVEAL_CARD: {
+            if (!state.replay_mode) return ValidationResult(false, "REVEAL command only valid in replay mode");
+
+            int level = move.faceup_level;
+            auto& faceup = state.getFaceup(level);
+            auto& deck = state.getDeck(level);
+            int& last_pos = state.getLastRemovedPos(level);
+
+            if (last_pos >= 0 && last_pos < (int)faceup.size()) {
+                faceup[last_pos] = move.revealed_card;
+            } else {
+                faceup.push_back(move.revealed_card);
             }
-            if (move.faceup_level == 1) {
-                // Replace placeholder at the tracked position
-                if (state.last_removed_pos_level1 < (int)state.faceup_level1.size()) {
-                    state.faceup_level1[state.last_removed_pos_level1] = move.revealed_card;
-                } else {
-                    state.faceup_level1.push_back(move.revealed_card);
-                }
-                
-                // Remove from deck if it was there
-                for (auto it = state.deck_level1.begin(); it != state.deck_level1.end(); ++it) {
-                    if (it->id == move.revealed_card.id) {
-                        state.deck_level1.erase(it);
-                        break;
-                    }
-                }
-            } else if (move.faceup_level == 2) {
-                if (state.last_removed_pos_level2 < (int)state.faceup_level2.size()) {
-                    state.faceup_level2[state.last_removed_pos_level2] = move.revealed_card;
-                } else {
-                    state.faceup_level2.push_back(move.revealed_card);
-                }
-                for (auto it = state.deck_level2.begin(); it != state.deck_level2.end(); ++it) {
-                    if (it->id == move.revealed_card.id) {
-                        state.deck_level2.erase(it);
-                        break;
-                    }
-                }
-            } else if (move.faceup_level == 3) {
-                if (state.last_removed_pos_level3 < (int)state.faceup_level3.size()) {
-                    state.faceup_level3[state.last_removed_pos_level3] = move.revealed_card;
-                } else {
-                    state.faceup_level3.push_back(move.revealed_card);
-                }
-                for (auto it = state.deck_level3.begin(); it != state.deck_level3.end(); ++it) {
-                    if (it->id == move.revealed_card.id) {
-                        state.deck_level3.erase(it);
-                        break;
-                    }
+
+            // Remove from deck
+            for (auto it = deck.begin(); it != deck.end(); ++it) {
+                if (it->id == move.revealed_card.id) {
+                    deck.erase(it);
+                    break;
                 }
             }
             state.reveal_expected = false;
             break;
+        }
             
         case INVALID_MOVE:
             return ValidationResult(false, "Attempted to apply an invalid move");
@@ -1198,6 +1101,13 @@ ValidationResult applyMove(GameState& state, const Move& move, ostream& err_os) 
     
     // Switch to next player if not expecting a reveal
     if (!state.reveal_expected) {
+        // Track consecutive passes
+        if (move.type == PASS_TURN) {
+            state.consecutive_passes++;
+        } else {
+            state.consecutive_passes = 0;
+        }
+        
         state.current_player = 1 - state.current_player;
         state.move_number++;
     }
@@ -1283,6 +1193,11 @@ void checkAndAssignNobles(GameState& state, int player_idx, int noble_id, ostrea
 
 // Check if game has ended
 bool isGameOver(const GameState& state) {
+    // If two consecutive passes occur, the game is a draw
+    if (state.consecutive_passes >= 2) {
+        return true;
+    }
+
     // Game ends when a player reaches 15+ points
     // Rules:
     // - If first player (player 0) reaches 15, second player gets one last turn
@@ -1319,6 +1234,11 @@ bool isGameOver(const GameState& state) {
 // Determine winner after game ends
 // Returns: 0 for player 0 wins, 1 for player 1 wins, -1 for tie
 int determineWinner(const GameState& state) {
+    // If two consecutive passes occurred, it's a forced draw
+    if (state.consecutive_passes >= 2) {
+        return -1;
+    }
+
     const Player& p0 = state.players[0];
     const Player& p1 = state.players[1];
     
@@ -1758,6 +1678,11 @@ string gameStateToJson(const GameState& state, int viewer_id) {
     
     ss << "},";
     
+    // Deck sizes (included for engine visibility)
+    ss << "\"deck_level1_size\":" << state.deck_level1.size() << ",";
+    ss << "\"deck_level2_size\":" << state.deck_level2.size() << ",";
+    ss << "\"deck_level3_size\":" << state.deck_level3.size() << ",";
+    
     // Nobles (just IDs)
     ss << "\"nobles\":[";
     for (size_t i = 0; i < state.available_nobles.size(); i++) {
@@ -2004,4 +1929,284 @@ bool processRevealCommand(GameState& state, const string& line, vector<Card>& al
     
     state.reveal_expected = false;
     return true;
+}
+
+// Helper to generate all combinations of returning gems to reach 10
+void generateReturnCombinations(const Tokens& current_tokens, int num_to_return, Tokens current_return, int color_idx, std::vector<Tokens>& results) {
+    if (results.size() >= 50) return;
+    if (num_to_return <= 0) {
+        results.push_back(current_return);
+        return;
+    }
+    if (color_idx >= 6) return;
+
+    int available = 0;
+    if (color_idx == 0) available = current_tokens.black;
+    else if (color_idx == 1) available = current_tokens.blue;
+    else if (color_idx == 2) available = current_tokens.white;
+    else if (color_idx == 3) available = current_tokens.green;
+    else if (color_idx == 4) available = current_tokens.red;
+    else if (color_idx == 5) available = current_tokens.joker;
+
+    for (int i = 0; i <= std::min(num_to_return, available); ++i) {
+        Tokens next_return = current_return;
+        if (color_idx == 0) next_return.black = i;
+        else if (color_idx == 1) next_return.blue = i;
+        else if (color_idx == 2) next_return.white = i;
+        else if (color_idx == 3) next_return.green = i;
+        else if (color_idx == 4) next_return.red = i;
+        else if (color_idx == 5) next_return.joker = i;
+        
+        generateReturnCombinations(current_tokens, num_to_return - i, next_return, color_idx + 1, results);
+        if (results.size() >= 50) return;
+    }
+}
+
+std::vector<Move> findAllValidMoves(const GameState& state) {
+    std::vector<Move> validMoves;
+    int p_idx = state.current_player;
+    const Player& player = state.players[p_idx];
+
+    // --- BUY ---
+    auto handleBuy = [&](const Card& card) {
+        if (card.id == 0) return;
+        Tokens new_bonuses = player.bonuses;
+        if (card.color == "black") new_bonuses.black++;
+        else if (card.color == "blue") new_bonuses.blue++;
+        else if (card.color == "white") new_bonuses.white++;
+        else if (card.color == "green") new_bonuses.green++;
+        else if (card.color == "red") new_bonuses.red++;
+
+        std::vector<int> qualifying;
+        for (const auto& noble : state.available_nobles) {
+            if (new_bonuses.black >= noble.requirements.black &&
+                new_bonuses.blue >= noble.requirements.blue &&
+                new_bonuses.white >= noble.requirements.white &&
+                new_bonuses.green >= noble.requirements.green &&
+                new_bonuses.red >= noble.requirements.red) {
+                qualifying.push_back(noble.id);
+            }
+        }
+
+        Move m; m.type = BUY_CARD; m.player_id = p_idx; m.card_id = card.id; m.auto_payment = true;
+        if (qualifying.size() > 1) {
+            for (int nid : qualifying) { Move nm = m; nm.noble_id = nid; if (validateMove(state, nm).valid) validMoves.push_back(nm); }
+        } else {
+            if (validateMove(state, m).valid) validMoves.push_back(m);
+        }
+    };
+    for (const auto& c : state.faceup_level1) handleBuy(c);
+    for (const auto& c : state.faceup_level2) handleBuy(c);
+    for (const auto& c : state.faceup_level3) handleBuy(c);
+    for (const auto& c : player.reserved) handleBuy(c);
+
+    // --- RESERVE ---
+    if (player.reserved.size() < 3) {
+        auto handleRes = [&](int cid) {
+            Move m; m.type = RESERVE_CARD; m.player_id = p_idx; m.card_id = cid;
+            int gain = (state.bank.joker > 0) ? 1 : 0;
+            if (player.tokens.total() + gain > 10) {
+                Tokens cur = player.tokens; cur.joker += gain;
+                std::vector<Tokens> rets; generateReturnCombinations(cur, cur.total() - 10, Tokens(), 0, rets);
+                for (const auto& r : rets) { Move rm = m; rm.gems_returned = r; if (validateMove(state, rm).valid) validMoves.push_back(rm); }
+            } else { if (validateMove(state, m).valid) validMoves.push_back(m); }
+        };
+        for (const auto& c : state.faceup_level1) if (c.id > 0) handleRes(c.id);
+        for (const auto& c : state.faceup_level2) if (c.id > 0) handleRes(c.id);
+        for (const auto& c : state.faceup_level3) if (c.id > 0) handleRes(c.id);
+        if (!state.deck_level1.empty()) handleRes(91);
+        if (!state.deck_level2.empty()) handleRes(92);
+        if (!state.deck_level3.empty()) handleRes(93);
+    }
+
+    // --- TAKE ---
+    // Take 2 of same color
+    for (int i = 0; i < 5; i++) {
+        Move m; m.type = TAKE_GEMS; m.player_id = p_idx;
+        if (i == 0) m.gems_taken.black = 2; else if (i == 1) m.gems_taken.blue = 2; else if (i == 2) m.gems_taken.white = 2; else if (i == 3) m.gems_taken.green = 2; else if (i == 4) m.gems_taken.red = 2;
+        if (player.tokens.total() + 2 > 10) {
+            Tokens cur = player.tokens; 
+            if (i == 0) cur.black += 2; else if (i == 1) cur.blue += 2; else if (i == 2) cur.white += 2; else if (i == 3) cur.green += 2; else if (i == 4) cur.red += 2;
+            std::vector<Tokens> rets; generateReturnCombinations(cur, cur.total() - 10, Tokens(), 0, rets);
+            for (const auto& r : rets) { Move tm = m; tm.gems_returned = r; if (validateMove(state, tm).valid) validMoves.push_back(tm); }
+        } else { if (validateMove(state, m).valid) validMoves.push_back(m); }
+    }
+    int colors_available = (state.bank.black > 0) + (state.bank.blue > 0) + (state.bank.white > 0) + (state.bank.green > 0) + (state.bank.red > 0);
+    int take_count = std::min(3, colors_available);
+
+    if (take_count == 3) {
+        for (int i = 0; i < 5; i++) {
+            for (int j = i + 1; j < 5; j++) {
+                for (int k = j + 1; k < 5; k++) {
+                    Move m; m.type = TAKE_GEMS; m.player_id = p_idx;
+                    auto set = [&](int idx, Tokens& t) { if (idx == 0) t.black = 1; else if (idx == 1) t.blue = 1; else if (idx == 2) t.white = 1; else if (idx == 3) t.green = 1; else if (idx == 4) t.red = 1; };
+                    set(i, m.gems_taken); set(j, m.gems_taken); set(k, m.gems_taken);
+                    if (player.tokens.total() + 3 > 10) {
+                        Tokens cur = player.tokens; 
+                        auto add = [&](int idx, Tokens& t) { if (idx == 0) t.black++; else if (idx == 1) t.blue++; else if (idx == 2) t.white++; else if (idx == 3) t.green++; else if (idx == 4) t.red++; };
+                        add(i, cur); add(j, cur); add(k, cur);
+                        std::vector<Tokens> rets; generateReturnCombinations(cur, cur.total() - 10, Tokens(), 0, rets);
+                        for (const auto& r : rets) { Move tm = m; tm.gems_returned = r; if (validateMove(state, tm).valid) validMoves.push_back(tm); }
+                    } else { if (validateMove(state, m).valid) validMoves.push_back(m); }
+                }
+            }
+        }
+    } else if (take_count == 2) {
+        for (int i = 0; i < 5; i++) {
+            for (int j = i + 1; j < 5; j++) {
+                Move m; m.type = TAKE_GEMS; m.player_id = p_idx;
+                auto set = [&](int idx, Tokens& t) { if (idx == 0) t.black = 1; else if (idx == 1) t.blue = 1; else if (idx == 2) t.white = 1; else if (idx == 3) t.green = 1; else if (idx == 4) t.red = 1; };
+                set(i, m.gems_taken); set(j, m.gems_taken);
+                if (player.tokens.total() + 2 > 10) {
+                    Tokens cur = player.tokens; 
+                    auto add = [&](int idx, Tokens& t) { if (idx == 0) t.black++; else if (idx == 1) t.blue++; else if (idx == 2) t.white++; else if (idx == 3) t.green++; else if (idx == 4) t.red++; };
+                    add(i, cur); add(j, cur);
+                    std::vector<Tokens> rets; generateReturnCombinations(cur, cur.total() - 10, Tokens(), 0, rets);
+                    for (const auto& r : rets) { Move tm = m; tm.gems_returned = r; if (validateMove(state, tm).valid) validMoves.push_back(tm); }
+                } else { if (validateMove(state, m).valid) validMoves.push_back(m); }
+            }
+        }
+    } else if (take_count == 1) {
+        for (int i = 0; i < 5; i++) {
+            Move m; m.type = TAKE_GEMS; m.player_id = p_idx;
+            if (i == 0) m.gems_taken.black = 1; else if (i == 1) m.gems_taken.blue = 1; else if (i == 2) m.gems_taken.white = 1; else if (i == 3) m.gems_taken.green = 1; else if (i == 4) m.gems_taken.red = 1;
+            if (player.tokens.total() + 1 > 10) {
+                Tokens cur = player.tokens; if (i == 0) cur.black += 1; else if (i == 1) cur.blue += 1; else if (i == 2) cur.white += 1; else if (i == 3) cur.green += 1; else if (i == 4) cur.red += 1;
+                std::vector<Tokens> rets; generateReturnCombinations(cur, cur.total() - 10, Tokens(), 0, rets);
+                for (const auto& r : rets) { Move tm = m; tm.gems_returned = r; if (validateMove(state, tm).valid) validMoves.push_back(tm); }
+            } else { if (validateMove(state, m).valid) validMoves.push_back(m); }
+        }
+    }
+
+    // --- PASS ---
+    if (validMoves.empty()) {
+        Move m; m.type = PASS_TURN; m.player_id = p_idx;
+        validMoves.push_back(m);
+    }
+
+    return validMoves;
+}
+
+std::string moveToString(const Move& m) {
+    std::stringstream ss;
+    if (m.type == TAKE_GEMS) {
+        ss << "TAKE";
+        if (m.gems_taken.black) { for (int i=0; i<m.gems_taken.black; i++) ss << " black"; }
+        if (m.gems_taken.blue) { for (int i=0; i<m.gems_taken.blue; i++) ss << " blue"; }
+        if (m.gems_taken.white) { for (int i=0; i<m.gems_taken.white; i++) ss << " white"; }
+        if (m.gems_taken.green) { for (int i=0; i<m.gems_taken.green; i++) ss << " green"; }
+        if (m.gems_taken.red) { for (int i=0; i<m.gems_taken.red; i++) ss << " red"; }
+        if (m.gems_returned.total() > 0) {
+            ss << " RETURN";
+            if (m.gems_returned.black) { for (int i=0; i<m.gems_returned.black; i++) ss << " black"; }
+            if (m.gems_returned.blue) { for (int i=0; i<m.gems_returned.blue; i++) ss << " blue"; }
+            if (m.gems_returned.white) { for (int i=0; i<m.gems_returned.white; i++) ss << " white"; }
+            if (m.gems_returned.green) { for (int i=0; i<m.gems_returned.green; i++) ss << " green"; }
+            if (m.gems_returned.red) { for (int i=0; i<m.gems_returned.red; i++) ss << " red"; }
+            if (m.gems_returned.joker) { for (int i=0; i<m.gems_returned.joker; i++) ss << " joker"; }
+        }
+    } else if (m.type == RESERVE_CARD) {
+        ss << "RESERVE " << m.card_id;
+        if (m.gems_returned.total() > 0) {
+            ss << " RETURN";
+            if (m.gems_returned.black) { for (int i=0; i<m.gems_returned.black; i++) ss << " black"; }
+            if (m.gems_returned.blue) { for (int i=0; i<m.gems_returned.blue; i++) ss << " blue"; }
+            if (m.gems_returned.white) { for (int i=0; i<m.gems_returned.white; i++) ss << " white"; }
+            if (m.gems_returned.green) { for (int i=0; i<m.gems_returned.green; i++) ss << " green"; }
+            if (m.gems_returned.red) { for (int i=0; i<m.gems_returned.red; i++) ss << " red"; }
+            if (m.gems_returned.joker) { for (int i=0; i<m.gems_returned.joker; i++) ss << " joker"; }
+        }
+    } else if (m.type == BUY_CARD) {
+        ss << "BUY " << m.card_id;
+        if (m.noble_id != -1) ss << " NOBLE " << m.noble_id;
+    } else if (m.type == PASS_TURN) {
+        ss << "PASS";
+    }
+    return ss.str();
+}
+
+GameState parseJson(const std::string& json, const std::vector<Card>& all_c, const std::vector<Noble>& all_n) {
+    GameState st;
+    size_t active_p = json.find("\"active_player_id\":");
+    if (active_p != std::string::npos) st.current_player = std::stoi(json.substr(active_p + 19, json.find_first_of(",}", active_p + 19) - (active_p + 19))) - 1;
+    
+    size_t board_p = json.find("\"board\":");
+    std::string board_json = (board_p != std::string::npos) ? json.substr(board_p) : json;
+    
+    size_t bank_p = board_json.find("\"bank\":");
+    if (bank_p == std::string::npos) bank_p = board_json.find("\"gems\":");
+    if (bank_p != std::string::npos) st.bank = parseTokens(board_json.substr(bank_p));
+    
+    auto get_ids = [&](const std::string& k) {
+        std::vector<Card> r; size_t p = board_json.find("\"" + k + "\":[");
+        if (p == std::string::npos) return r;
+        p += k.length() + 4; // "\"key\":["
+        size_t e = board_json.find("]", p);
+        if (e == std::string::npos) return r;
+        std::stringstream ss(board_json.substr(p, e - p)); std::string id_s;
+        while (std::getline(ss, id_s, ',')) { if (!id_s.empty()) { try { int id = std::stoi(id_s); if (id > 0) r.push_back(loadCardById(id, all_c)); else if (id == 0) r.push_back({0, 0, 0, "", {}}); } catch(...) {} } }
+        return r;
+    };
+    
+    st.faceup_level1 = get_ids("level1"); 
+    st.faceup_level2 = get_ids("level2"); 
+    st.faceup_level3 = get_ids("level3");
+    
+    size_t n_p = board_json.find("\"nobles\":[");
+    if (n_p != std::string::npos) {
+        n_p += 10; size_t n_e = board_json.find("]", n_p);
+        if (n_e != std::string::npos) {
+            std::stringstream ss(board_json.substr(n_p, n_e - n_p)); std::string id_s;
+            while (std::getline(ss, id_s, ',')) { if (!id_s.empty()) { try { int id = std::stoi(id_s); for (const auto& n : all_n) if (n.id == id) st.available_nobles.push_back(n); } catch(...) {} } }
+        }
+    }
+    
+    size_t players_p = json.find("\"players\":[");
+    if (players_p != std::string::npos) {
+        for (int i = 0; i < 2; i++) {
+            size_t p_start = json.find("{", players_p);
+            if (p_start == std::string::npos) break;
+            int d = 1; size_t cur = p_start + 1;
+            while (d > 0 && cur < json.length()) { if (json[cur] == '{') d++; else if (json[cur] == '}') d--; cur++; }
+            std::string p_json = json.substr(p_start, cur - p_start);
+            players_p = cur;
+            
+            Player& p = st.players[i];
+            size_t gems_p = p_json.find("\"gems\":");
+            if (gems_p != std::string::npos) p.tokens = parseTokens(p_json.substr(gems_p));
+            size_t disc_p = p_json.find("\"discounts\":");
+            if (disc_p != std::string::npos) p.bonuses = parseTokens(p_json.substr(disc_p));
+            
+            size_t r_p = p_json.find("\"reserved_card_ids\":[");
+            if (r_p != std::string::npos) {
+                r_p += 21; size_t r_e = p_json.find("]", r_p);
+                if (r_e != std::string::npos) {
+                    std::stringstream ss(p_json.substr(r_p, r_e - r_p)); std::string id_s;
+                    while (std::getline(ss, id_s, ',')) { 
+                        if (!id_s.empty()) { 
+                            try { 
+                                int id = std::stoi(id_s); 
+                                if (id > 0 && id <= 90) p.reserved.push_back(loadCardById(id, all_c)); 
+                                else if (id >= 91) p.reserved.push_back({id, id-90, 0, "", {}}); 
+                            } catch(...) {} 
+                        } 
+                    }
+                }
+            }
+            size_t pts_p = p_json.find("\"points\":");
+            if (pts_p != std::string::npos) p.points = std::stoi(p_json.substr(pts_p + 9, p_json.find_first_of(",}", pts_p + 9) - (pts_p + 9)));
+        }
+    }
+    
+    auto get_val = [&](const std::string& k) {
+        size_t p = json.find("\"" + k + "\":");
+        if (p == std::string::npos) return 0;
+        size_t e = json.find_first_of(",}", p + k.length() + 3);
+        try { return std::stoi(json.substr(p + k.length() + 3, e - (p + k.length() + 3))); } catch(...) { return 0; }
+    };
+    st.deck_level1.assign(get_val("deck_level1_size"), {0, 1, 0, "", {}});
+    st.deck_level2.assign(get_val("deck_level2_size"), {0, 2, 0, "", {}});
+    st.deck_level3.assign(get_val("deck_level3_size"), {0, 3, 0, "", {}});
+    
+    return st;
 }

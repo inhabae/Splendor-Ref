@@ -195,9 +195,11 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         
-        // Output updated game states to both players
-        printJsonGameState(game, 1);
-        printJsonGameState(game, 2);
+        // Output updated game states to both players if game is not over
+        if (!isGameOver(game)) {
+            printJsonGameState(game, 1);
+            printJsonGameState(game, 2);
+        }
     }
     
     // Game ended - determine winner

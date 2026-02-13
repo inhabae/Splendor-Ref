@@ -76,11 +76,26 @@ def run_tournament(ref_cmd, engine1_cmd, engine2_cmd):
             e.terminate()
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='Run a Splendor tournament.')
+    parser.add_argument('--referee', default='./referee', help='Path to the referee executable (default: ./referee)')
+    parser.add_argument('--seed', default='0', help='Seed for the referee (default: 0)')
+    parser.add_argument('engine1', help='Command to run engine 1 (e.g., ./engine or engine.py)')
+    parser.add_argument('engine2', help='Command to run engine 2')
+
+    args = parser.parse_args()
+
     # Command to run your referee
-    ref_call = ["./referee", "0"] # Seed 0 means random seed, Seed > 0 means fixed seed
+    ref_call = [args.referee, args.seed]
     
+    # Helper to format engine commands
+    def get_engine_cmd(cmd, log_file):
+        if cmd.endswith(".py"):
+            return ["python3", cmd, log_file]
+        return [cmd, log_file]
+
     # Commands to run your engines with log file arguments
-    p1_call = ["python3", "random_engine.py", "engine1.log"]
-    p2_call = ["python3", "random_engine.py", "engine2.log"]
+    p1_call = get_engine_cmd(args.engine1, "engine1.log")
+    p2_call = get_engine_cmd(args.engine2, "engine2.log")
 
     run_tournament(ref_call, p1_call, p2_call)
