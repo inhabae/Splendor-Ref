@@ -107,11 +107,11 @@ def main():
     
     # Half games Engine 1 is P1
     for i in range(num_p1_is_e1):
-        tasks.append((i, engine1_path, engine2_path, "./referee", base_seed + i))
+        tasks.append((i, engine1_path, engine2_path, "./build/referee", base_seed + i))
     
     # Half games Engine 2 is P1
     for i in range(num_p1_is_e2):
-        tasks.append((num_p1_is_e1 + i, engine2_path, engine1_path, "./referee", base_seed + num_p1_is_e1 + i))
+        tasks.append((num_p1_is_e1 + i, engine2_path, engine1_path, "./build/referee", base_seed + num_p1_is_e1 + i))
     
     print(f"Running {total_games} games: {engine1_name} vs {engine2_name}")
     print(f"Workers: {multiprocessing.cpu_count()} (this may take a few minutes)...", flush=True)

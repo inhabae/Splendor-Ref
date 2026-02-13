@@ -78,7 +78,7 @@ def run_tournament(ref_cmd, engine1_cmd, engine2_cmd):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Run a Splendor tournament.')
-    parser.add_argument('--referee', default='./referee', help='Path to the referee executable (default: ./referee)')
+    parser.add_argument('--referee', default='./build/referee', help='Path to the referee executable (default: ./build/referee)')
     parser.add_argument('--seed', default='0', help='Seed for the referee (default: 0)')
     parser.add_argument('engine1', help='Command to run engine 1 (e.g., ./engine or engine.py)')
     parser.add_argument('engine2', help='Command to run engine 2')

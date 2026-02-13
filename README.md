@@ -4,13 +4,13 @@ This project provides a Splendor game engine, multiple MCTS-based AI engines, an
 
 ## Compilation
 
-Buil all executables using the provided Makefile:
+Buil all executables using the provided Makefile into the `build/` directory:
 
 ```bash
 make all
 ```
 
-This will create the following binaries:
+This will create the following binaries in `build/`:
 - `referee`: The main game controller.
 - `mcts_engine_04`: The primary AI engine (accepts parameters).
 - `mcts_engine_01`, `mcts_engine_03`: Baseline MCTS engines.
@@ -24,7 +24,7 @@ This will create the following binaries:
 The referee manages turns and validates moves between two AI players.
 
 ```bash
-./referee [seed]
+./build/referee [seed]
 ```
 Wait for communication via stdin/stdout after starting.
 
@@ -32,11 +32,11 @@ Wait for communication via stdin/stdout after starting.
 The primary AI engine. It can be initialized with custom weight parameters for its evaluation heuristic.
 
 ```bash
-./mcts_engine_04 [W_CARD] [W_GEM] [W_JOKER] [W_POINT] [W_NOBLE] [W_NOBLE_PROGRESS] [W_RESERVED_PROGRESS] [W_RESERVED_EFFICIENCY] [W_UNRESERVED_SLOT] [W_BOUGHT_EFFICIENCY]
+./build/mcts_engine_04 [W_CARD] [W_GEM] [W_JOKER] [W_POINT] [W_NOBLE] [W_NOBLE_PROGRESS] [W_RESERVED_PROGRESS] [W_RESERVED_EFFICIENCY] [W_UNRESERVED_SLOT] [W_BOUGHT_EFFICIENCY]
 ```
 Example:
 ```bash
-./mcts_engine_04 0.4 0.25 0.3 20.13 20.7 0.1 0.1 1.06 0.5 1.0
+./build/mcts_engine_04 0.4 0.25 0.3 20.13 20.7 0.1 0.1 1.06 0.5 1.0
 ```
 
 ### Genetic Algorithm Optimization
@@ -62,8 +62,8 @@ make test
 ```
 Or manually run:
 ```bash
-g++ -std=c++11 -Wall -o tests tests.cpp game_logic.cpp
-./tests
+g++ -std=c++11 -Wall -Isrc -o build/test_referee tests/tests.cpp src/game_logic.cpp
+./build/test_referee
 ```
 
 ## Cleaning Up

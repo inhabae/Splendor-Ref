@@ -17,9 +17,9 @@ GENERATIONS = 50
 GAMES_PER_BASELINE = 30  # Games per baseline opponent
 CONVERGENCE_PATIENCE = 7
 FITNESS_IMPROVEMENT_THRESHOLD = 0.01  # Minimum improvement to reset convergence
-ENGINE_EXE = "./mcts_engine_04"
-BASELINES = ["./mcts_engine_01", "./mcts_engine_03"]
-REFEREE_EXE = "./referee"
+ENGINE_EXE = "./build/mcts_engine_04"
+BASELINES = ["./build/mcts_engine_01", "./build/mcts_engine_03"]
+REFEREE_EXE = "./build/referee"
 
 def run_single_game_with_weights(args):
     game_id, engine1_cmd, engine2_cmd, seed = args
