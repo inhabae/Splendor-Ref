@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splendor Game Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #6b4423 0%, #3d2817 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 30px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .target {
+            color: #ffd700;
+        }
+
+        .turn {
+            color: #fff;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .move-input-container {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            padding: 2px 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .move-input {
+            width: 50px;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 5px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            -moz-appearance: textfield;
+        }
+
+        .move-input::-webkit-outer-spin-button,
+        .move-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .move-input:focus {
+            outline: none;
+        }
+
+        .go-btn {
+            background: #2196F3;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .go-btn:hover {
+            background: #1976D2;
+        }
+        
+        .control-btn {
+            padding: 8px 16px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .control-btn:hover {
+            background: #45a049;
+        }
+        
+        .control-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .players-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .player {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 15px;
+            border: 3px solid transparent;
+        }
+
+        .player.active {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .player-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .player-points {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .gems-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .gem {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .gem.black { background: #2c2c2c; color: #fff; }
+        .gem.blue { background: #2196F3; color: #fff; }
+        .gem.white { background: #f5f5f5; color: #333; }
+        .gem.green { background: #4CAF50; color: #fff; }
+        .gem.red { background: #f44336; color: #fff; }
+        .gem.joker { background: #ffd700; color: #333; }
+
+        .discounts-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .reserved-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .reserved-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 44px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            cursor: help;
+        }
+
+        .reserved-card.black { background: linear-gradient(145deg, #4a4a4a 0%, #2c2c2c 100%); color: #fff; }
+        .reserved-card.blue { background: linear-gradient(145deg, #4a90e2 0%, #2e5c8a 100%); color: #fff; }
+        .reserved-card.white { background: linear-gradient(145deg, #f5f5f5 0%, #d0d0d0 100%); color: #333; }
+        .reserved-card.green { background: linear-gradient(145deg, #50c878 0%, #2d8659 100%); color: #fff; }
+        .reserved-card.red { background: linear-gradient(145deg, #e74c3c 0%, #c0392b 100%); color: #fff; }
+        .reserved-card.gray { background: #ccc; color: #333; }
+
+        .discount-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 50px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .discount-card.black { background: linear-gradient(145deg, #4a4a4a 0%, #2c2c2c 100%); color: #fff; }
+        .discount-card.blue { background: linear-gradient(145deg, #64b5f6 0%, #2196F3 100%); color: #fff; }
+        .discount-card.white { background: linear-gradient(145deg, #ffffff 0%, #e0e0e0 100%); color: #333; }
+        .discount-card.green { background: linear-gradient(145deg, #81c784 0%, #4CAF50 100%); color: #fff; }
+        .discount-card.red { background: linear-gradient(145deg, #e57373 0%, #f44336 100%); color: #fff; }
+
+        .purchased-container {
+            display: flex;
+            gap: 4px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .purchased-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 38px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            cursor: help;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .purchased-card.black { background: #2c2c2c; color: #fff; }
+        .purchased-card.blue { background: #2196F3; color: #fff; }
+        .purchased-card.white { background: #f5f5f5; color: #333; }
+        .purchased-card.green { background: #4CAF50; color: #fff; }
+        .noble-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            border: 2px solid #ffd700;
+            background: linear-gradient(145deg, #e8e8e8 0%, #d0d0d0 100%);
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            cursor: help;
+        }
+
+        .preview-container {
+            position: fixed;
+            z-index: 10000;
+            display: none;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border: 2px solid #ffd700;
+            padding: 0;
+        }
+
+        .discounts {
+            font-size: 14px;
+            color: #d8a7ff;
+            margin-top: 5px;
+        }
+
+        .nobles-section {
+            margin-bottom: 20px;
+        }
+
+        .nobles-container {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        .noble {
+            width: 115px;
+            height: 115px;
+            background: linear-gradient(145deg, #e8e8e8 0%, #d0d0d0 100%);
+            border: 3px solid #000000;
+            border-radius: 12px;
+            padding: 0.6rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(212, 175, 55, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .noble:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7), 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .noble-header {
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+            padding-bottom: 0.3rem;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+            margin-bottom: 0.3rem;
+        }
+
+        .noble-points {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+
+        .noble-id {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #000000;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+            margin-bottom: 0.3rem;
+        }
+
+        .noble-requirements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            justify-content: center;
+            padding: 0.3rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        .noble-req {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 1px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+        
+        .noble-req.black {
+            background: radial-gradient(circle, #4a4a4a, #2c2c2c);
+        }
+        .noble-req.blue {
+            background: radial-gradient(circle, #4a90e2, #2e5c8a);
+        }
+        .noble-req.white {
+            background: radial-gradient(circle, #f5f5f5, #d0d0d0);
+            color: #333;
+        }
+        .noble-req.green {
+            background: radial-gradient(circle, #50c878, #2d8659);
+        }
+        .noble-req.red {
+            background: radial-gradient(circle, #e74c3c, #c0392b);
+        }
+
+        .main-board {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .bank-section {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .bank-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .bank-gem {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .bank-gem:hover {
+            transform: scale(1.1);
+        }
+        
+        .bank-gem.black {
+            background: radial-gradient(circle, #4a4a4a, #2c2c2c);
+            color: #fff;
+        }
+        .bank-gem.blue {
+            background: radial-gradient(circle, #4a90e2, #2e5c8a);
+            color: #fff;
+        }
+        .bank-gem.white {
+            background: radial-gradient(circle, #f5f5f5, #d0d0d0);
+            color: #333;
+        }
+        .bank-gem.green {
+            background: radial-gradient(circle, #50c878, #2d8659);
+            color: #fff;
+        }
+        .bank-gem.red {
+            background: radial-gradient(circle, #e74c3c, #c0392b);
+            color: #fff;
+        }
+        .bank-gem.joker {
+            background: radial-gradient(circle, #ffd700, #b8941f);
+            color: #333;
+        }
+
+        .cards-section {
+            flex: 1;
+        }
+        
+        .nobles-section {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .nobles-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            color: #ffd700;
+        }
+
+        .card-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .card {
+            width: 200px;
+            height: 240px;
+            border-radius: 15px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 3px solid #000000;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(212, 175, 55, 0.2);
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(212, 175, 55, 0.4);
+        }
+
+        .card.red { 
+            background: linear-gradient(145deg, #ffb8b8 0%, #ff9999 100%);
+        }
+        .card.blue { 
+            background: linear-gradient(145deg, #a8d4ff 0%, #7ab8f5 100%);
+        }
+        .card.green { 
+            background: linear-gradient(145deg, #b8f0d0 0%, #8ee6b8 100%);
+        }
+        .card.white { 
+            background: linear-gradient(145deg, #e8e8e8 0%, #d0d0d0 100%);
+        }
+        .card.black { 
+            background: linear-gradient(145deg, #9a9a9a 0%, #7a7a7a 100%);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+        }
+
+        .card-points {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+
+        .card-bonus {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-bonus.white {
+            background: radial-gradient(circle, #f5f5f5, #d0d0d0);
+        }
+        .card-bonus.blue {
+            background: radial-gradient(circle, #4a90e2, #2e5c8a);
+        }
+        .card-bonus.green {
+            background: radial-gradient(circle, #50c878, #2d8659);
+        }
+        .card-bonus.red {
+            background: radial-gradient(circle, #e74c3c, #c0392b);
+        }
+        .card-bonus.black {
+            background: radial-gradient(circle, #4a4a4a, #2c2c2c);
+        }
+
+        .card-id {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1a1a2e;
+            text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.3);
+            margin: 0.5rem 0;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .card-level {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid #000000;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            color: #000000;
+            font-weight: bold;
+        }
+
+        .card-costs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+        }
+
+        .card-cost {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+        
+        .card-cost.black {
+            background: radial-gradient(circle, #4a4a4a, #2c2c2c);
+        }
+        .card-cost.blue {
+            background: radial-gradient(circle, #4a90e2, #2e5c8a);
+        }
+        .card-cost.white {
+            background: radial-gradient(circle, #f5f5f5, #d0d0d0);
+            color: #333;
+        }
+        .card-cost.green {
+            background: radial-gradient(circle, #50c878, #2d8659);
+        }
+        .card-cost.red {
+            background: radial-gradient(circle, #e74c3c, #c0392b);
+        }
+
+        .deck-placeholder {
+            width: 140px;
+            height: 180px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 3px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .deck-count {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .input-section {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-upload-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .file-input-label {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #2196F3;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #1976D2;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-name {
+            color: #ffd700;
+            font-size: 14px;
+        }
+
+        .move-log {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .move-entry {
+            padding: 5px 10px;
+            margin: 5px 0;
+            border-left: 3px solid #4CAF50;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .move-entry.error {
+            border-left-color: #f44336;
+            color: #ff9999;
+        }
+
+        .move-entry.reveal {
+            border-left-color: #ffd700;
+            color: #ffd700;
+        }
+
+        .row-label {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 5px;
+            padding-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <div class="game-info">
+                <div class="target">Move: <span id="turn-number">0</span> / <span id="total-moves">0</span></div>
+                <div class="turn">Player <span id="active-player">1</span>'s Turn</div>
+            </div>
+            <div class="controls">
+                <div class="move-input-container">
+                    <input type="number" id="move-number-input" class="move-input" placeholder="Move" min="0">
+                    <button class="go-btn" onclick="goToMove()">Go</button>
+                </div>
+                <button class="control-btn" id="prev-btn" onclick="previousMove()">◀ Previous</button>
+                <button class="control-btn" id="play-btn" onclick="toggleAutoPlay()">▶ Play</button>
+                <button class="control-btn" id="next-btn" onclick="nextMove()">Next ▶</button>
+            </div>
+        </div>
+
+        <div class="players-section" id="players-section">
+            <!-- Players will be dynamically added here -->
+        </div>
+
+        <div class="main-board">
+            <div class="bank-section">
+                <div class="bank-title">Bank</div>
+                <div class="bank-gem black" data-color="black">
+                    <span id="bank-black">4</span>
+                </div>
+                <div class="bank-gem blue" data-color="blue">
+                    <span id="bank-blue">4</span>
+                </div>
+                <div class="bank-gem white" data-color="white">
+                    <span id="bank-white">4</span>
+                </div>
+                <div class="bank-gem green" data-color="green">
+                    <span id="bank-green">4</span>
+                </div>
+                <div class="bank-gem red" data-color="red">
+                    <span id="bank-red">4</span>
+                </div>
+                <div class="bank-gem joker" data-color="joker">
+                    <span id="bank-joker">5</span>
+                </div>
+            </div>
+
+            <div class="cards-section">
+                <div class="row-label">Level 3</div>
+                <div class="card-row" id="level3-row">
+                    <!-- Level 3 cards -->
+                </div>
+                <div class="row-label">Level 2</div>
+                <div class="card-row" id="level2-row">
+                    <!-- Level 2 cards -->
+                </div>
+                <div class="row-label">Level 1</div>
+                <div class="card-row" id="level1-row">
+                    <!-- Level 1 cards -->
+                </div>
+            </div>
+            
+            <div class="nobles-section">
+                <div class="nobles-title">Nobles</div>
+                <div class="nobles-container" id="nobles-container">
+                    <!-- Nobles will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <div id="data-load-error" style="display: none; background: #f44336; color: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; font-size: 14px;">
+                <strong>⚠️ CORS Issue:</strong> Cannot load cards/nobles automatically when opening as a file. 
+                <br>Either run a local server: <code style="background:#000; padding:2px 4px; border-radius:3px;">python3 -m http.server</code>
+                <br>Or upload them manually:
+                <div style="margin-top: 10px;">
+                    <label style="background: white; color: #333; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                        Upload cards.json <input type="file" accept=".json" style="display: none;" onchange="loadCardsManually(event)">
+                    </label>
+                    <label style="background: white; color: #333; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">
+                        Upload nobles.json <input type="file" accept=".json" style="display: none;" onchange="loadNoblesManually(event)">
+                    </label>
+                </div>
+            </div>
+            <div class="file-upload-container">
+                <label for="file-input" class="file-input-label">Load Log/Game File (game.log)</label>
+                <input type="file" id="file-input" accept=".txt,.log" onchange="loadGameFile(event)">
+                <span class="file-name" id="file-name"></span>
+            </div>
+            <div class="move-log" id="move-log">
+                <div style="text-align: center; color: #999; padding: 20px;">
+                    Load a game file to start the visualization
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="preview-container" class="preview-container"></div>
+
+    <script>
+        const EMBEDDED_CARDS = [
+  {"id": 1, "level": 1, "points": 0, "color": "black", "cost": {"blue": 1, "green": 1, "red": 1, "white": 1}},
+  {"id": 2, "level": 1, "points": 0, "color": "black", "cost": {"blue": 2, "green": 1, "red": 1, "white": 1}},
+  {"id": 3, "level": 1, "points": 0, "color": "black", "cost": {"blue": 2, "red": 1, "white": 2}},
+  {"id": 4, "level": 1, "points": 0, "color": "black", "cost": {"black": 1, "green": 1, "red": 3}},
+  {"id": 5, "level": 1, "points": 0, "color": "black", "cost": {"green": 2, "red": 1}},
+  {"id": 6, "level": 1, "points": 0, "color": "black", "cost": {"green": 2, "white": 2}},
+  {"id": 7, "level": 1, "points": 0, "color": "black", "cost": {"green": 3}},
+  {"id": 8, "level": 1, "points": 1, "color": "black", "cost": {"blue": 4}},
+  {"id": 9, "level": 1, "points": 0, "color": "blue", "cost": {"black": 1, "green": 1, "red": 1, "white": 1}},
+  {"id": 10, "level": 1, "points": 0, "color": "blue", "cost": {"black": 1, "green": 1, "red": 2, "white": 1}},
+  {"id": 11, "level": 1, "points": 0, "color": "blue", "cost": {"green": 2, "red": 2, "white": 1}},
+  {"id": 12, "level": 1, "points": 0, "color": "blue", "cost": {"blue": 1, "green": 3, "red": 1}},
+  {"id": 13, "level": 1, "points": 0, "color": "blue", "cost": {"black": 2, "white": 1}},
+  {"id": 14, "level": 1, "points": 0, "color": "blue", "cost": {"black": 2, "green": 2}},
+  {"id": 15, "level": 1, "points": 0, "color": "blue", "cost": {"black": 3}},
+  {"id": 16, "level": 1, "points": 1, "color": "blue", "cost": {"red": 4}},
+  {"id": 17, "level": 1, "points": 0, "color": "white", "cost": {"black": 1, "blue": 1, "green": 1, "red": 1}},
+  {"id": 18, "level": 1, "points": 0, "color": "white", "cost": {"black": 1, "blue": 1, "green": 2, "red": 1}},
+  {"id": 19, "level": 1, "points": 0, "color": "white", "cost": {"black": 1, "blue": 2, "green": 2}},
+  {"id": 20, "level": 1, "points": 0, "color": "white", "cost": {"black": 1, "blue": 1, "white": 3}},
+  {"id": 21, "level": 1, "points": 0, "color": "white", "cost": {"black": 1, "red": 2}},
+  {"id": 22, "level": 1, "points": 0, "color": "white", "cost": {"black": 2, "blue": 2}},
+  {"id": 23, "level": 1, "points": 0, "color": "white", "cost": {"blue": 3}},
+  {"id": 24, "level": 1, "points": 1, "color": "white", "cost": {"green": 4}},
+  {"id": 25, "level": 1, "points": 0, "color": "green", "cost": {"black": 1, "blue": 1, "red": 1, "white": 1}},
+  {"id": 26, "level": 1, "points": 0, "color": "green", "cost": {"black": 2, "blue": 1, "red": 1, "white": 1}},
+  {"id": 27, "level": 1, "points": 0, "color": "green", "cost": {"black": 2, "blue": 1, "red": 2}},
+  {"id": 28, "level": 1, "points": 0, "color": "green", "cost": {"blue": 3, "green": 1, "white": 1}},
+  {"id": 29, "level": 1, "points": 0, "color": "green", "cost": {"blue": 1, "white": 2}},
+  {"id": 30, "level": 1, "points": 0, "color": "green", "cost": {"blue": 2, "red": 2}},
+  {"id": 31, "level": 1, "points": 0, "color": "green", "cost": {"red": 3}},
+  {"id": 32, "level": 1, "points": 1, "color": "green", "cost": {"black": 4}},
+  {"id": 33, "level": 1, "points": 0, "color": "red", "cost": {"black": 1, "blue": 1, "green": 1, "white": 1}},
+  {"id": 34, "level": 1, "points": 0, "color": "red", "cost": {"black": 1, "blue": 1, "green": 1, "white": 2}},
+  {"id": 35, "level": 1, "points": 0, "color": "red", "cost": {"black": 2, "green": 1, "white": 2}},
+  {"id": 36, "level": 1, "points": 0, "color": "red", "cost": {"black": 3, "red": 1, "white": 1}},
+  {"id": 37, "level": 1, "points": 0, "color": "red", "cost": {"blue": 2, "green": 1}},
+  {"id": 38, "level": 1, "points": 0, "color": "red", "cost": {"red": 2, "white": 2}},
+  {"id": 39, "level": 1, "points": 0, "color": "red", "cost": {"white": 3}},
+  {"id": 40, "level": 1, "points": 1, "color": "red", "cost": {"white": 4}},
+  {"id": 41, "level": 2, "points": 1, "color": "black", "cost": {"blue": 2, "green": 2, "white": 3}},
+  {"id": 42, "level": 2, "points": 1, "color": "black", "cost": {"black": 2, "green": 3, "white": 3}},
+  {"id": 43, "level": 2, "points": 2, "color": "black", "cost": {"blue": 1, "green": 4, "red": 2}},
+  {"id": 44, "level": 2, "points": 2, "color": "black", "cost": {"green": 5, "red": 3}},
+  {"id": 45, "level": 2, "points": 2, "color": "black", "cost": {"white": 5}},
+  {"id": 46, "level": 2, "points": 3, "color": "black", "cost": {"black": 6}},
+  {"id": 47, "level": 2, "points": 1, "color": "blue", "cost": {"blue": 2, "green": 2, "red": 3}},
+  {"id": 48, "level": 2, "points": 1, "color": "blue", "cost": {"black": 3, "blue": 2, "green": 3}},
+  {"id": 49, "level": 2, "points": 2, "color": "blue", "cost": {"blue": 3, "white": 5}},
+  {"id": 50, "level": 2, "points": 2, "color": "blue", "cost": {"black": 4, "red": 1, "white": 2}},
+  {"id": 51, "level": 2, "points": 2, "color": "blue", "cost": {"blue": 5}},
+  {"id": 52, "level": 2, "points": 3, "color": "blue", "cost": {"blue": 6}},
+  {"id": 53, "level": 2, "points": 1, "color": "white", "cost": {"black": 2, "green": 3, "red": 2}},
+  {"id": 54, "level": 2, "points": 1, "color": "white", "cost": {"blue": 3, "red": 3, "white": 2}},
+  {"id": 55, "level": 2, "points": 2, "color": "white", "cost": {"black": 2, "green": 1, "red": 4}},
+  {"id": 56, "level": 2, "points": 2, "color": "white", "cost": {"black": 3, "red": 5}},
+  {"id": 57, "level": 2, "points": 2, "color": "white", "cost": {"red": 5}},
+  {"id": 58, "level": 2, "points": 3, "color": "white", "cost": {"white": 6}},
+  {"id": 59, "level": 2, "points": 1, "color": "green", "cost": {"green": 2, "red": 3, "white": 3}},
+  {"id": 60, "level": 2, "points": 1, "color": "green", "cost": {"black": 2, "blue": 3, "white": 2}},
+  {"id": 61, "level": 2, "points": 2, "color": "green", "cost": {"black": 1, "blue": 2, "white": 4}},
+  {"id": 62, "level": 2, "points": 2, "color": "green", "cost": {"blue": 5, "green": 3}},
+  {"id": 63, "level": 2, "points": 2, "color": "green", "cost": {"green": 5}},
+  {"id": 64, "level": 2, "points": 3, "color": "green", "cost": {"green": 6}},
+  {"id": 65, "level": 2, "points": 1, "color": "red", "cost": {"black": 3, "red": 2, "white": 2}},
+  {"id": 66, "level": 2, "points": 1, "color": "red", "cost": {"black": 3, "blue": 3, "red": 2}},
+  {"id": 67, "level": 2, "points": 2, "color": "red", "cost": {"blue": 4, "green": 2, "white": 1}},
+  {"id": 68, "level": 2, "points": 2, "color": "red", "cost": {"black": 5, "white": 3}},
+  {"id": 69, "level": 2, "points": 2, "color": "red", "cost": {"black": 5}},
+  {"id": 70, "level": 2, "points": 3, "color": "red", "cost": {"red": 6}},
+  {"id": 71, "level": 3, "points": 3, "color": "black", "cost": {"blue": 3, "green": 5, "red": 3, "white": 3}},
+  {"id": 72, "level": 3, "points": 4, "color": "black", "cost": {"red": 7}},
+  {"id": 73, "level": 3, "points": 4, "color": "black", "cost": {"black": 3, "green": 3, "red": 6}},
+  {"id": 74, "level": 3, "points": 5, "color": "black", "cost": {"black": 3, "red": 7}},
+  {"id": 75, "level": 3, "points": 3, "color": "blue", "cost": {"black": 5, "green": 3, "red": 3, "white": 3}},
+  {"id": 76, "level": 3, "points": 4, "color": "blue", "cost": {"white": 7}},
+  {"id": 77, "level": 3, "points": 4, "color": "blue", "cost": {"black": 3, "blue": 3, "white": 6}},
+  {"id": 78, "level": 3, "points": 5, "color": "blue", "cost": {"blue": 3, "white": 7}},
+  {"id": 79, "level": 3, "points": 3, "color": "white", "cost": {"black": 3, "blue": 3, "green": 3, "red": 5}},
+  {"id": 80, "level": 3, "points": 4, "color": "white", "cost": {"black": 7}},
+  {"id": 81, "level": 3, "points": 4, "color": "white", "cost": {"black": 6, "red": 3, "white": 3}},
+  {"id": 82, "level": 3, "points": 5, "color": "white", "cost": {"black": 7, "white": 3}},
+  {"id": 83, "level": 3, "points": 3, "color": "green", "cost": {"black": 3, "blue": 3, "red": 3, "white": 5}},
+  {"id": 84, "level": 3, "points": 4, "color": "green", "cost": {"blue": 7}},
+  {"id": 85, "level": 3, "points": 4, "color": "green", "cost": {"blue": 6, "green": 3, "white": 3}},
+  {"id": 86, "level": 3, "points": 5, "color": "green", "cost": {"blue": 7, "green": 3}},
+  {"id": 87, "level": 3, "points": 3, "color": "red", "cost": {"black": 3, "blue": 5, "green": 3, "white": 3}},
+  {"id": 88, "level": 3, "points": 4, "color": "red", "cost": {"green": 7}},
+  {"id": 89, "level": 3, "points": 4, "color": "red", "cost": {"blue": 3, "green": 6, "red": 3}},
+  {"id": 90, "level": 3, "points": 5, "color": "red", "cost": {"green": 7, "red": 3}}
+];
+        const EMBEDDED_NOBLES = [
+  { "id": 1, "points": 3, "requirements": { "black": 3, "blue": 3, "white": 3 } },
+  { "id": 2, "points": 3, "requirements": { "black": 3, "green": 3, "red": 3 } },
+  { "id": 3, "points": 3, "requirements": { "black": 3, "red": 3, "white": 3 } },
+  { "id": 4, "points": 3, "requirements": { "blue": 3, "green": 3, "red": 3 } },
+  { "id": 5, "points": 3, "requirements": { "blue": 3, "green": 3, "white": 3 } },
+  { "id": 6, "points": 3, "requirements": { "black": 4, "red": 4 } },
+  { "id": 7, "points": 3, "requirements": { "black": 4, "white": 4 } },
+  { "id": 8, "points": 3, "requirements": { "blue": 4, "green": 4 } },
+  { "id": 9, "points": 3, "requirements": { "blue": 4, "white": 4 } },
+  { "id": 10, "points": 3, "requirements": { "green": 4, "red": 4 } }
+];
+
+        let gameStates = [];  // Array of all game states from JSON
+        let parsedMoveLines = [];
+        let parsedMetaLines = [];
+        let parsedSetupLines = [];
+        let currentStateIndex = 0;  // Current position in replay
+        let cardDatabase = {};
+        let noblesDatabase = {};
+        let autoPlayInterval = null;  // For auto-play functionality
+
+        async function fetchJsonFromCandidates(paths) {
+            for (const path of paths) {
+                try {
+                    const response = await fetch(path);
+                    if (!response.ok) continue;
+                    return await response.json();
+                } catch (err) {
+                    // Keep trying paths.
+                }
+            }
+            return null;
+        }
+
+        function loadReferenceData(cards, nobles) {
+            cards.forEach(card => {
+                cardDatabase[card.id] = card;
+            });
+            nobles.forEach(noble => {
+                noblesDatabase[noble.id] = noble;
+            });
+            document.getElementById('data-load-error').style.display = 'none';
+            addMoveToLog(`✅ Loaded ${cards.length} cards and ${nobles.length} nobles`, 'normal');
+        }
+
+        // Load cards and nobles data
+        async function loadGameData() {
+            console.log('Starting to load game data...');
+            try {
+                const cards = await fetchJsonFromCandidates(['data/cards.json', 'cards.json']);
+                const nobles = await fetchJsonFromCandidates(['data/nobles.json', 'nobles.json']);
+
+                if (cards && nobles) {
+                    console.log('Loaded reference data via fetch');
+                    loadReferenceData(cards, nobles);
+                } else {
+                    console.log('Falling back to embedded reference data');
+                    loadReferenceData(EMBEDDED_CARDS, EMBEDDED_NOBLES);
+                    addMoveToLog('ℹ️ Using embedded cards/nobles data (offline mode)', 'normal');
+                }
+                
+                // Try to load default game states
+                try {
+                    console.log('Attempting to load game1_states.json...');
+                    await loadGameStatesFromFile('game1_states.json');
+                } catch (e) {
+                    console.error('Error loading game states:', e);
+                    addMoveToLog('⚠️ Could not auto-load game1_states.json', 'error');
+                    addMoveToLog('This might be a CORS issue. To fix:', 'normal');
+                    addMoveToLog('1. Start a local server: python3 -m http.server 8000', 'normal');
+                    addMoveToLog('2. Open: http://localhost:8000/splendor.html', 'normal');
+                }
+            } catch (error) {
+                console.error('Error loading game data:', error);
+                // Last resort: embedded constants.
+                try {
+                    loadReferenceData(EMBEDDED_CARDS, EMBEDDED_NOBLES);
+                    addMoveToLog('ℹ️ Using embedded cards/nobles data after fetch failure', 'normal');
+                } catch (innerError) {
+                    document.getElementById('data-load-error').style.display = 'block';
+                    addMoveToLog('❌ Error loading cards/nobles: ' + error.message, 'error');
+                }
+            }
+        }
+
+        function loadCardsManually(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const cards = JSON.parse(e.target.result);
+                    cards.forEach(card => cardDatabase[card.id] = card);
+                    addMoveToLog(`✅ Loaded ${cards.length} cards manually`, 'normal');
+                    checkAllDataLoaded();
+                } catch (err) {
+                    addMoveToLog('❌ Failed to parse cards.json', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadNoblesManually(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const nobles = JSON.parse(e.target.result);
+                    nobles.forEach(noble => noblesDatabase[noble.id] = noble);
+                    addMoveToLog(`✅ Loaded ${nobles.length} nobles manually`, 'normal');
+                    checkAllDataLoaded();
+                } catch (err) {
+                    addMoveToLog('❌ Failed to parse nobles.json', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function checkAllDataLoaded() {
+            if (Object.keys(cardDatabase).length > 0 && Object.keys(noblesDatabase).length > 0) {
+                document.getElementById('data-load-error').style.display = 'none';
+                addMoveToLog('✨ All reference data loaded!', 'normal');
+                if (gameStates.length > 0) showCurrentState();
+            }
+        }
+
+        // Load game states from JSON file
+        async function loadGameStatesFromFile(filename) {
+            try {
+                parsedMoveLines = [];
+                parsedMetaLines = [];
+                parsedSetupLines = [];
+                console.log('Fetching', filename);
+                const response = await fetch(filename);
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const states = await response.json();
+                console.log('Loaded', states.length, 'states');
+                gameStates = states;
+                currentStateIndex = 0;
+                
+                // Show initial state
+                if (gameStates.length > 0) {
+                    // Calculate max move number
+                    const maxMove = Math.max(...gameStates.map(s => s.move));
+                    document.getElementById('total-moves').textContent = maxMove;
+                    console.log('Showing initial state...');
+                    showCurrentState();
+                    updateMoveLog();
+                    addMoveToLog(`✅ Loaded ${gameStates.length} states successfully!`, 'normal');
+                    console.log('Initial state displayed');
+                }
+            } catch (error) {
+                console.error('Failed to load game states:', error);
+                throw error;
+            }
+        }
+
+        // Load game file and process with referee logic
+        function extractJsonPayloadFromLogLine(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return null;
+
+            if (trimmed.startsWith('[REF P1] ')) return trimmed.slice(9);
+            if (trimmed.startsWith('[REF P2] ')) return trimmed.slice(9);
+            if (trimmed.startsWith('[REF] ')) return trimmed.slice(6);
+            if (trimmed.startsWith('{')) return trimmed;
+            return null;
+        }
+
+        function parseLogContent(content) {
+            const lines = content.split('\n');
+            const statesByMove = new Map();
+            const moveLines = [];
+            const metaLines = [];
+            const setupLines = [];
+            const fallbackStates = [];
+
+            lines.forEach(rawLine => {
+                const line = rawLine.trim();
+                if (!line) return;
+
+                if (line.startsWith('[MOVE P1] ') || line.startsWith('[MOVE P2] ')) {
+                    moveLines.push(line);
+                    return;
+                }
+
+                if (
+                    line.startsWith('[GAME]') ||
+                    line.startsWith('[SETUP]') ||
+                    line.includes('WINNER:') ||
+                    line.includes('RESULT:') ||
+                    line.includes('REASON:') ||
+                    line.includes('SEED:')
+                ) {
+                    metaLines.push(line);
+                    if (line.startsWith('[SETUP]') || line.startsWith('[GAME]')) {
+                        setupLines.push(line);
+                    }
+                }
+
+                const payload = extractJsonPayloadFromLogLine(line);
+                if (!payload) return;
+
+                try {
+                    const state = JSON.parse(payload);
+                    if (!state.board || !state.players) return;
+
+                    const move = Number(state.move);
+                    if (!Number.isFinite(move)) {
+                        fallbackStates.push(state);
+                        return;
+                    }
+
+                    const existing = statesByMove.get(move);
+                    if (!existing) {
+                        statesByMove.set(move, state);
+                        return;
+                    }
+
+                    // Prefer viewer 1 state for determinism.
+                    const existingYou = Number(existing.you || 0);
+                    const nextYou = Number(state.you || 0);
+                    if (existingYou !== 1 && nextYou === 1) {
+                        statesByMove.set(move, state);
+                    }
+                } catch (err) {
+                    // Ignore non-JSON lines.
+                }
+            });
+
+            let states = Array.from(statesByMove.values()).sort((a, b) => Number(a.move) - Number(b.move));
+            if (states.length === 0) states = fallbackStates;
+
+            return { states, moveLines, metaLines, setupLines };
+        }
+
+        async function loadGameFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('file-name').textContent = file.name;
+            parsedMoveLines = [];
+            parsedMetaLines = [];
+            parsedSetupLines = [];
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const parsed = parseLogContent(content);
+                const states = parsed.states;
+                parsedMoveLines = parsed.moveLines;
+                parsedMetaLines = parsed.metaLines;
+                parsedSetupLines = parsed.setupLines;
+
+                if (states.length > 0) {
+                    gameStates = states;
+                    currentStateIndex = 0;
+                    const maxMove = Math.max(...gameStates.map(s => s.move));
+                    document.getElementById('total-moves').textContent = maxMove;
+                    showCurrentState();
+                    updateMoveLog();
+                    addMoveToLog(`✅ Loaded ${gameStates.length} states from ${file.name}`, 'normal');
+                } else {
+                    parsedMoveLines = [];
+                    parsedMetaLines = [];
+                    parsedSetupLines = [];
+                    addMoveToLog(`❌ No valid game states found in ${file.name}`, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Show current state
+        function showCurrentState() {
+            if (gameStates.length === 0) {
+                console.log('No game states to show');
+                return;
+            }
+            
+            console.log('Showing state', currentStateIndex, 'of', gameStates.length);
+            const state = gameStates[currentStateIndex];
+            console.log('State:', state);
+            
+            // Update the move input field to match current state
+            const moveInput = document.getElementById('move-number-input');
+            if (moveInput) {
+                moveInput.value = state.move;
+            }
+            
+            updateBoard(state);
+            updateControls();
+        }
+
+        // Update board display
+        function updateBoard(state) {
+            console.log('Updating board with state:', state);
+            // Update move info - use actual move number from state
+            document.getElementById('turn-number').textContent = state.move;
+            document.getElementById('active-player').textContent = state.active_player_id;
+
+            // Update players
+            updatePlayers(state.players, state.active_player_id);
+
+            // Update bank
+            const bank = state.board.gems;
+            document.getElementById('bank-black').textContent = bank.black || 0;
+            document.getElementById('bank-blue').textContent = bank.blue || 0;
+            document.getElementById('bank-white').textContent = bank.white || 0;
+            document.getElementById('bank-green').textContent = bank.green || 0;
+            document.getElementById('bank-red').textContent = bank.red || 0;
+            document.getElementById('bank-joker').textContent = bank.joker || 0;
+
+            // Update nobles
+            updateNobles(state.board.nobles);
+
+            // Update cards
+            updateCards(state.board.face_up_cards);
+        }
+
+        function updatePlayers(players, activePlayerId) {
+            const container = document.getElementById('players-section');
+            container.innerHTML = '';
+
+            players.forEach(player => {
+                const isActive = player.id === activePlayerId;
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `player ${isActive ? 'active' : ''}`;
+
+                const gems = player.gems;
+                const discounts = player.discounts;
+                
+                // Build discount cards HTML
+                let discountsHTML = '<div class="discounts-container">';
+                const discountColors = ['black', 'blue', 'white', 'green', 'red'];
+                discountColors.forEach(color => {
+                    if (discounts[color] > 0) {
+                        discountsHTML += `<div class="discount-card ${color}">${discounts[color]}</div>`;
+                    }
+                });
+                discountsHTML += '</div>';
+
+                let noblesHTML = '';
+                if (player.owned_noble_ids && player.owned_noble_ids.length > 0) {
+                    noblesHTML = `
+                        <div style="font-size: 14px; margin-top: 10px; font-weight: bold; color: #ffd700;">Nobles:</div>
+                        <div class="reserved-container">
+                            ${player.owned_noble_ids.map(id => 
+                                `<div class="noble-icon" onmouseenter="showNoblePreview(${id}, event)" onmouseleave="hidePreview()">${id}</div>`
+                            ).join('')}
+                        </div>`;
+                }
+
+                playerDiv.innerHTML = `
+                    <div class="player-header">
+                        <div class="player-name">Player ${player.id}</div>
+                        <div class="player-points">${player.points}</div>
+                    </div>
+                    <div class="gems-container">
+                        <div class="gem black">${gems.black || 0}</div>
+                        <div class="gem blue">${gems.blue || 0}</div>
+                        <div class="gem white">${gems.white || 0}</div>
+                        <div class="gem green">${gems.green || 0}</div>
+                        <div class="gem red">${gems.red || 0}</div>
+                        <div class="gem joker">${gems.joker || 0}</div>
+                    </div>
+                    ${discountsHTML}
+                    <div style="font-size: 14px; margin-top: 10px; font-weight: bold; color: #ffd700;">Reserved:</div>
+                    <div class="reserved-container">
+                        ${player.reserved_card_ids && player.reserved_card_ids.length > 0 ? 
+                            player.reserved_card_ids.map(id => {
+                                const card = cardDatabase[id];
+                                const colorClass = card ? card.color : 'gray';
+                                return `<div class="reserved-card ${colorClass}" onmouseenter="showCardPreview(${id}, event)" onmouseleave="hidePreview()">${id}</div>`;
+                            }).join('') : 
+                            '<span style="font-size: 12px; color: #888;">none</span>'
+                        }
+                    </div>
+                    <div style="font-size: 14px; margin-top: 10px; font-weight: bold; color: #4CAF50;">Purchased:</div>
+                    <div class="purchased-container">
+                        ${player.purchased_card_ids && player.purchased_card_ids.length > 0 ? 
+                            player.purchased_card_ids.map(id => {
+                                const card = cardDatabase[id];
+                                const colorClass = card ? card.color : 'gray';
+                                return `<div class="purchased-card ${colorClass}" onmouseenter="showCardPreview(${id}, event)" onmouseleave="hidePreview()">${id}</div>`;
+                            }).join('') : 
+                            '<span style="font-size: 12px; color: #888;">none</span>'
+                        }
+                    </div>
+                    ${noblesHTML}
+                `;
+
+                container.appendChild(playerDiv);
+            });
+        }
+
+        function showCardPreview(cardId, event) {
+            const card = cardDatabase[cardId];
+            if (!card) return;
+
+            const preview = document.getElementById('preview-container');
+            
+            // Generate card HTML
+            let headerHTML = '<div class="card-header" style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid rgba(0, 0, 0, 0.3); display: flex; justify-content: space-between; align-items: center;">';
+            if (card.points > 0) {
+                headerHTML += `<div style="font-size: 1.8rem; font-weight: bold; color: #ffffff; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);">${card.points}</div>`;
+            } else {
+                headerHTML += '<div></div>';
+            }
+            headerHTML += `<div class="card-bonus ${card.color}"></div>`;
+            headerHTML += '</div>';
+
+            const idHTML = `<div style="font-size: 2rem; font-weight: bold; color: #1a1a2e; text-shadow: 1px 1px 3px rgba(255, 255, 255, 0.3); flex: 1; display: flex; align-items: center; justify-content: center;">id=${card.id}</div>`;
+
+            let footerHTML = '<div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem;">';
+            footerHTML += `<div style="text-align: center; background: rgba(0, 0, 0, 0.2); border: 1px solid #000000; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; color: #000000; font-weight: bold;">Level ${card.level}</div>`;
+            
+            footerHTML += '<div class="card-costs">';
+            const costColors = ['white', 'blue', 'green', 'red', 'black'];
+            costColors.forEach(color => {
+                if (card.cost[color] > 0) {
+                    footerHTML += `<div class="card-cost ${color}">${card.cost[color]}</div>`;
+                }
+            });
+            footerHTML += '</div></div>';
+
+            preview.innerHTML = `
+                <div class="card ${card.color}" style="margin: 0; box-shadow: none;">
+                    ${headerHTML}
+                    ${idHTML}
+                    ${footerHTML}
+                </div>
+            `;
+
+            preview.style.display = 'block';
+            positionPreview(preview, event, 200, 240);
+        }
+
+        function showNoblePreview(nobleId, event) {
+            const noble = noblesDatabase[nobleId];
+            if (!noble) return;
+
+            const preview = document.getElementById('preview-container');
+            
+            let headerHTML = '<div class="noble-header">';
+            headerHTML += `<div class="noble-points">${noble.points}</div>`;
+            headerHTML += '</div>';
+
+            const idHTML = `<div class="noble-id">id=${noble.id}</div>`;
+
+            let reqHTML = '<div class="noble-requirements">';
+            const reqColors = ['white', 'blue', 'green', 'red', 'black'];
+            reqColors.forEach(color => {
+                if (noble.requirements[color] > 0) {
+                    reqHTML += `<div class="noble-req ${color}">${noble.requirements[color]}</div>`;
+                }
+            });
+            reqHTML += '</div>';
+
+            preview.innerHTML = `
+                <div class="noble" style="margin: 0; box-shadow: none;">
+                    ${headerHTML}
+                    ${idHTML}
+                    ${reqHTML}
+                </div>
+            `;
+
+            preview.style.display = 'block';
+            positionPreview(preview, event, 115, 115);
+        }
+
+        function positionPreview(preview, event, width, height) {
+            // Position near cursor
+            const x = event.clientX + 20;
+            const y = event.clientY + 20;
+            
+            // Keep on screen
+            let finalX = x;
+            let finalY = y;
+            
+            if (x + width + 20 > window.innerWidth) finalX = event.clientX - width - 20;
+            if (y + height + 20 > window.innerHeight) finalY = event.clientY - height - 20;
+            
+            preview.style.left = finalX + 'px';
+            preview.style.top = finalY + 'px';
+        }
+
+        function hidePreview() {
+            document.getElementById('preview-container').style.display = 'none';
+        }
+
+        function updateNobles(nobleIds) {
+            const container = document.getElementById('nobles-container');
+            container.innerHTML = '';
+
+            if (!nobleIds || nobleIds.length === 0) return;
+
+            nobleIds.forEach(id => {
+                const noble = noblesDatabase[id];
+                if (!noble) return;
+
+                const nobleDiv = document.createElement('div');
+                nobleDiv.className = 'noble';
+
+                // Noble header with points
+                let headerHTML = '<div class="noble-header">';
+                headerHTML += `<div class="noble-points">${noble.points}</div>`;
+                headerHTML += '</div>';
+
+                // Noble ID
+                const idHTML = `<div class="noble-id">id=${noble.id}</div>`;
+
+                // Noble requirements
+                let reqHTML = '<div class="noble-requirements">';
+                const reqColors = ['white', 'blue', 'green', 'red', 'black'];
+                reqColors.forEach(color => {
+                    if (noble.requirements[color] > 0) {
+                        reqHTML += `<div class="noble-req ${color}">${noble.requirements[color]}</div>`;
+                    }
+                });
+                reqHTML += '</div>';
+
+                nobleDiv.innerHTML = headerHTML + idHTML + reqHTML;
+                container.appendChild(nobleDiv);
+            });
+        }
+
+        function updateCards(faceUpCards) {
+            const levels = ['level1', 'level2', 'level3'];
+            
+            levels.forEach(level => {
+                const row = document.getElementById(`${level}-row`);
+                row.innerHTML = '';
+
+                // Add face-up cards
+                const cards = faceUpCards[level] || [];
+                cards.forEach(cardId => {
+                    const card = cardDatabase[cardId];
+                    if (!card) return;
+
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = `card ${card.color}`;
+                    cardDiv.dataset.cardId = cardId;
+                    
+                    // Card header with points and bonus
+                    let headerHTML = '<div class="card-header">';
+                    if (card.points > 0) {
+                        headerHTML += `<div class="card-points">${card.points}</div>`;
+                    } else {
+                        headerHTML += '<div></div>';
+                    }
+                    headerHTML += `<div class="card-bonus ${card.color}"></div>`;
+                    headerHTML += '</div>';
+
+                    // Card ID
+                    const idHTML = `<div class="card-id">id=${card.id}</div>`;
+
+                    // Card footer with level and costs
+                    let footerHTML = '<div class="card-footer">';
+                    footerHTML += `<div class="card-level">Level ${card.level}</div>`;
+                    
+                    footerHTML += '<div class="card-costs">';
+                    const costColors = ['white', 'blue', 'green', 'red', 'black'];
+                    costColors.forEach(color => {
+                        if (card.cost[color] > 0) {
+                            footerHTML += `<div class="card-cost ${color}">${card.cost[color]}</div>`;
+                        }
+                    });
+                    footerHTML += '</div></div>';
+
+                    cardDiv.innerHTML = headerHTML + idHTML + footerHTML;
+                    row.appendChild(cardDiv);
+                });
+            });
+        }
+
+        // Navigation functions
+        function goToMove() {
+            const input = document.getElementById('move-number-input');
+            const targetMove = parseInt(input.value);
+            
+            if (isNaN(targetMove)) return;
+            
+            // Find the first state that has this move number
+            const index = gameStates.findIndex(s => s.move >= targetMove);
+            
+            if (index !== -1) {
+                currentStateIndex = index;
+                showCurrentState();
+            } else if (gameStates.length > 0) {
+                // If move number is beyond total moves, go to the last state
+                currentStateIndex = gameStates.length - 1;
+                showCurrentState();
+            }
+        }
+
+        // Add event listener for Enter key on move input
+        document.addEventListener('DOMContentLoaded', () => {
+            const moveInput = document.getElementById('move-number-input');
+            if (moveInput) {
+                moveInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        goToMove();
+                    }
+                });
+            }
+
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                // Don't trigger if user is typing in the input field
+                if (document.activeElement.tagName === 'INPUT') return;
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        previousMove();
+                        break;
+                    case 'ArrowRight':
+                        nextMove();
+                        break;
+                    case ' ':
+                        e.preventDefault(); // Prevent scrolling
+                        toggleAutoPlay();
+                        break;
+                }
+            });
+        });
+
+        function previousMove() {
+            if (currentStateIndex > 0) {
+                currentStateIndex--;
+                showCurrentState();
+            }
+        }
+
+        function nextMove() {
+            if (currentStateIndex < gameStates.length - 1) {
+                currentStateIndex++;
+                showCurrentState();
+            }
+        }
+
+        function toggleAutoPlay() {
+            const btn = document.getElementById('play-btn');
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                btn.textContent = '▶ Play';
+            } else {
+                btn.textContent = '⏸ Pause';
+                autoPlayInterval = setInterval(() => {
+                    if (currentStateIndex < gameStates.length - 1) {
+                        nextMove();
+                    } else {
+                        toggleAutoPlay(); // Stop when reaching the end
+                    }
+                }, 1000); // 1 second between moves
+            }
+        }
+
+        function updateControls() {
+            document.getElementById('prev-btn').disabled = currentStateIndex === 0;
+            document.getElementById('next-btn').disabled = currentStateIndex === gameStates.length - 1;
+        }
+
+        function updateMoveLog() {
+            const log = document.getElementById('move-log');
+            const maxMove = gameStates.length > 0 ? Math.max(...gameStates.map(s => s.move)) : 0;
+            log.innerHTML = `<div style="color: #4CAF50; padding: 10px;">Loaded ${gameStates.length} states (${maxMove} moves)</div>`;
+
+            parsedSetupLines.forEach(line => {
+                const entry = document.createElement('div');
+                entry.className = 'move-entry normal';
+                entry.style.color = '#ffd54f';
+                entry.textContent = line;
+                log.appendChild(entry);
+            });
+
+            parsedMoveLines.forEach(line => {
+                const entry = document.createElement('div');
+                entry.className = 'move-entry normal';
+                entry.textContent = line;
+                log.appendChild(entry);
+            });
+
+            parsedMetaLines.forEach(line => {
+                if (line.startsWith('[SETUP]') || line.startsWith('[GAME]')) return;
+                const entry = document.createElement('div');
+                entry.className = 'move-entry normal';
+                entry.textContent = line;
+                log.appendChild(entry);
+            });
+        }
+
+        function addMoveToLog(text, type = 'normal') {
+            const log = document.getElementById('move-log');
+            const entry = document.createElement('div');
+            entry.className = `move-entry ${type}`;
+            entry.textContent = text;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Initialize
+        console.log('=== Splendor Visualizer Starting ===');
+        console.log('Loading game data...');
+        loadGameData();
+    </script>
+</body>
+</html>

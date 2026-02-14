@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Isrc
+CXXFLAGS = -std=c++11 -O3 -DNDEBUG -Wall -Isrc
 SRC_DIR = src
 TEST_DIR = tests
 BUILD_DIR = build
@@ -7,20 +7,14 @@ BUILD_DIR = build
 TARGET = $(BUILD_DIR)/referee
 RANDOM_ENGINE = $(BUILD_DIR)/random_engine
 MCTS_01 = $(BUILD_DIR)/mcts_engine_01
-MCTS_03 = $(BUILD_DIR)/mcts_engine_03
-MCTS_04 = $(BUILD_DIR)/mcts_engine_04
-REPLAY = $(BUILD_DIR)/replay
 TEST_TARGET = $(BUILD_DIR)/test_referee
 
 OBJ = referee_main.o game_logic.o
 RANDOM_OBJ = random_engine.o game_logic.o
-MCTS_01_OBJ = mcts_engine_01.o game_logic.o
-MCTS_03_OBJ = mcts_engine_03.o game_logic.o
-MCTS_04_OBJ = mcts_engine_04.o game_logic.o
-REPLAY_OBJ = replay_main.o game_logic.o
+MCTS_01_OBJ = mcts_engine_01.o mcts_core.o linear_eval.o belief_state.o game_logic.o
 HEADER = game_logic.h
 
-all: $(BUILD_DIR) $(TARGET) $(RANDOM_ENGINE) $(MCTS_01) $(MCTS_03) $(MCTS_04) $(REPLAY)
+all: $(BUILD_DIR) $(TARGET) $(RANDOM_ENGINE) $(MCTS_01)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -28,20 +22,11 @@ $(BUILD_DIR):
 $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJ)
 
-$(REPLAY): $(REPLAY_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(REPLAY) $(REPLAY_OBJ)
-
 $(RANDOM_ENGINE): $(RANDOM_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(RANDOM_ENGINE) $(RANDOM_OBJ)
 
 $(MCTS_01): $(MCTS_01_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(MCTS_01) $(MCTS_01_OBJ)
-
-$(MCTS_03): $(MCTS_03_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(MCTS_03) $(MCTS_03_OBJ)
-
-$(MCTS_04): $(MCTS_04_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(MCTS_04) $(MCTS_04_OBJ)
 
 # Compilation rule for object files in src/
 %.o: $(SRC_DIR)/%.cpp $(SRC_DIR)/game_logic.h | $(BUILD_DIR)

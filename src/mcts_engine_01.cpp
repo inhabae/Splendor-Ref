@@ -1,187 +1,152 @@
+#include "belief_state.h"
 #include "game_logic.h"
-#include <vector>
-#include <algorithm>
-#include <string>
+#include "linear_eval.h"
+#include "mcts_core.h"
+
+#include <exception>
 #include <iostream>
 #include <random>
+#include <string>
 #include <ctime>
-#include <chrono>
-#include <cmath>
-#include <memory>
+#include <vector>
 
-using namespace std;
-using namespace std::chrono;
+using std::cerr;
+using std::cin;
+using std::cout;
+using std::endl;
+using std::getline;
+using std::size_t;
+using std::string;
+using std::vector;
 
-const double UCT_CONSTANT = 1.414;
-const int ITERATIONS = 2000;
+namespace {
 
-// Evaluation Weights
-const double W_CARD = 1.0;
-const double W_GEM = 0.2;
-const double W_JOKER = 0.5;
-const double W_POINT = 10.0;
-const double W_NOBLE = 5.0;
-
-struct MCTSNode {
-    GameState state;
-    Move move;
-    MCTSNode* parent;
-    vector<unique_ptr<MCTSNode>> children;
-    double wins = 0;
-    int visits = 0;
-    vector<Move> untriedMoves;
-    int playerWhoMoved;
-
-    MCTSNode(const GameState& s, MCTSNode* p = nullptr, Move m = Move()) 
-        : state(s), move(m), parent(p) {
-        untriedMoves = findAllValidMoves(state);
-        playerWhoMoved = 1 - state.current_player; // The player who just moved to get to this state
+bool extractIntField(const string& s, const string& key, int& out) {
+    size_t p = s.find(key);
+    if (p == string::npos) return false;
+    p += key.size();
+    size_t e = s.find_first_of(",}", p);
+    if (e == string::npos) return false;
+    try {
+        out = std::stoi(s.substr(p, e - p));
+        return true;
+    } catch (...) {
+        return false;
     }
+}
 
-    double uctScore(int totalVisits) const {
-        if (visits == 0) return 1e9;
-        return (wins / visits) + UCT_CONSTANT * sqrt(log(totalVisits) / visits);
-    }
+void applyWeightByIndex(EvalWeights& w, int idx, double v) {
+    if (idx == 0) w.W_POINT_SELF = v;
+    else if (idx == 1) w.W_POINT_OPP = v;
+    else if (idx == 2) w.W_GEM_SELF = v;
+    else if (idx == 3) w.W_GEM_OPP = v;
+    else if (idx == 4) w.W_BONUS_SELF = v;
+    else if (idx == 5) w.W_BONUS_OPP = v;
+    else if (idx == 6) w.W_RESERVED_SELF = v;
+    else if (idx == 7) w.W_RESERVED_OPP = v;
+    else if (idx == 8) w.W_NOBLE_PROGRESS_SELF = v;
+    else if (idx == 9) w.W_NOBLE_PROGRESS_OPP = v;
+    else if (idx == 10) w.W_AFFORDABLE_SELF = v;
+    else if (idx == 11) w.W_AFFORDABLE_OPP = v;
+    else if (idx == 12) w.W_WIN_BONUS = v;
+    else if (idx == 13) w.W_LOSS_PENALTY = v;
+    else if (idx == 14) w.W_TURN_PENALTY = v;
+    else if (idx == 15) w.W_EFFICIENCY = v;
+    else if (idx == 16) w.W_DIRECTIONAL_COMMITMENT = v;
+}
 
-    bool isTerminal() const {
-        return isGameOver(state);
-    }
+} // namespace
 
-    bool isFullyExpanded() const {
-        return untriedMoves.empty();
-    }
-};
+#ifndef ENGINE_TEST
+int main(int argc, char* argv[]) {
+    MctsConfig cfg;
+    EvalWeights weights;
 
-MCTSNode* select(MCTSNode* node) {
-    while (!node->isTerminal()) {
-        if (!node->isFullyExpanded()) {
-            return node;
-        } else if (node->children.empty()) {
-            return node; // Should not happen if not terminal
-        } else {
-            MCTSNode* bestChild = nullptr;
-            double bestScore = -1e18;
-            for (auto& child : node->children) {
-                double score = child->uctScore(node->visits);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestChild = child.get();
-                }
+    vector<double> positional_weights;
+
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+
+        try {
+            if (arg == "--sims" && i + 1 < argc) {
+                cfg.simulations = std::max(1, std::stoi(argv[++i]));
+                continue;
             }
-            node = bestChild;
-        }
-    }
-    return node;
-}
+            if (arg == "--seed" && i + 1 < argc) {
+                cfg.seed = static_cast<uint64_t>(std::stoull(argv[++i]));
+                continue;
+            }
+            if (arg == "--max-depth" && i + 1 < argc) {
+                cfg.max_depth = std::max(1, std::stoi(argv[++i]));
+                continue;
+            }
+            if (arg == "--risk-lambda" && i + 1 < argc) {
+                cfg.risk_lambda = std::stod(argv[++i]);
+                continue;
+            }
+            if (arg == "--det" && i + 1 < argc) {
+                cfg.determinizations_per_batch = std::max(1, std::stoi(argv[++i]));
+                continue;
+            }
+            if (arg == "--c-puct" && i + 1 < argc) {
+                cfg.c_puct = std::stod(argv[++i]);
+                continue;
+            }
 
-MCTSNode* expand(MCTSNode* node, mt19937& rng) {
-    if (node->isTerminal()) return node;
-    
-    uniform_int_distribution<int> dist(0, node->untriedMoves.size() - 1);
-    int idx = dist(rng);
-    Move move = node->untriedMoves[idx];
-    node->untriedMoves.erase(node->untriedMoves.begin() + idx);
-
-    GameState nextState = node->state;
-    applyMove(nextState, move);
-    
-    node->children.push_back(unique_ptr<MCTSNode>(new MCTSNode(nextState, node, move)));
-    return node->children.back().get();
-}
-
-double simulate(GameState state, mt19937& rng) {
-    int evaluation_player = 1 - state.current_player; // The player who just moved to get here
-    
-    // If the state is terminal, return the actual result
-    if (isGameOver(state)) {
-        int winner = determineWinner(state);
-        if (winner == -1) return 0.5; // Tie
-        return (winner == evaluation_player) ? 1.0 : 0.0;
-    }
-
-    // Otherwise, use a linear sum of weights for heuristic evaluation
-    auto getScore = [&](int p_idx) {
-        const Player& p = state.players[p_idx];
-        const Player& opp = state.players[1 - p_idx];
-        double s = 0;
-        s += p.cards.size() * W_CARD;
-        s += p.tokens.total() * W_GEM;
-        s += p.tokens.joker * W_JOKER;
-        s += p.points * W_POINT;
-        s += p.nobles.size() * W_NOBLE;
-        return s;
-    };
-
-    double my_score = getScore(evaluation_player);
-    double opp_score = getScore(1 - evaluation_player);
-    
-    // Normalize the difference using a sigmoid function to stay in [0, 1] for MCTS
-    double diff = my_score - opp_score;
-    return 1.0 / (1.0 + exp(-diff / 20.0));
-}
-
-void backpropagate(MCTSNode* node, double result) {
-    while (node != nullptr) {
-        node->visits++;
-        node->wins += result;
-        result = 1.0 - result; // Flip result for the other player
-        node = node->parent;
-    }
-}
-
-Move mctsSearch(const GameState& rootState, int iterations) {
-    mt19937 rng(time(0));
-    unique_ptr<MCTSNode> root(new MCTSNode(rootState));
-
-    if (root->untriedMoves.size() == 1) return root->untriedMoves[0];
-
-    for (int i = 0; i < iterations; i++) {
-        MCTSNode* leaf = select(root.get());
-        if (!leaf->isTerminal() && !leaf->untriedMoves.empty()) {
-            leaf = expand(leaf, rng);
-        }
-        double result = simulate(leaf->state, rng);
-        backpropagate(leaf, result);
-    }
-
-    MCTSNode* bestChild = nullptr;
-    int maxVisits = -1;
-    for (auto& child : root->children) {
-        if (child->visits > maxVisits) {
-            maxVisits = child->visits;
-            bestChild = child.get();
+            // Unflagged numerics are interpreted as ordered weight overrides.
+            positional_weights.push_back(std::stod(arg));
+        } catch (...) {
+            // Ignore non-numeric extras for compatibility with old runner args.
         }
     }
 
-    return bestChild ? bestChild->move : (root->untriedMoves.empty() ? Move() : root->untriedMoves[0]);
-}
+    for (size_t i = 0; i < positional_weights.size() && i < 17; ++i) {
+        applyWeightByIndex(weights, static_cast<int>(i), positional_weights[i]);
+    }
 
-int main() {
-    cerr << "MCTS Engine started" << endl;
-    vector<Card> all_c = loadCards("data/cards.json");
-    vector<Noble> all_n = loadNobles("data/nobles.json");
+    vector<Card> all_cards = loadCards("data/cards.json");
+    vector<Noble> all_nobles = loadNobles("data/nobles.json");
+    if (all_cards.empty() || all_nobles.empty()) {
+        cerr << "mcts_engine_01: failed to load data files" << endl;
+        return 1;
+    }
+
+    BeliefState belief(all_cards, static_cast<unsigned int>(cfg.seed));
+
+    uint64_t runtime_seed = cfg.seed;
+    if (runtime_seed == 0) {
+        runtime_seed = static_cast<uint64_t>(time(nullptr));
+    }
+
     string line;
     while (getline(cin, line)) {
         if (line.empty()) continue;
+
+        int you = 0;
+        int active = 0;
+        if (!extractIntField(line, "\"you\":", you)) continue;
+        if (!extractIntField(line, "\"active_player_id\":", active)) continue;
+
+        if (you <= 0 || active <= 0) continue;
+        if (you != active) continue;
+
         try {
-            size_t you_p = line.find("\"you\":"); if (you_p == string::npos) continue;
-            int you = stoi(line.substr(you_p + 6, line.find_first_of(",}", you_p + 6) - (you_p + 6)));
-            size_t act_p = line.find("\"active_player_id\":"); if (act_p == string::npos) continue;
-            int active = stoi(line.substr(act_p + 19, line.find_first_of(",}", act_p + 19) - (act_p + 19)));
-            
-            if (active == you) {
-                GameState st = parseJson(line, all_c, all_n);
-                Move bestMove = mctsSearch(st, ITERATIONS);
-                string moveStr = moveToString(bestMove);
-                if (moveStr.empty()) moveStr = "PASS";
-                cout << moveStr << endl << flush;
-                cerr << "MCTS Engine output: " << moveStr << endl;
-            }
-        } catch (const exception& e) {
-            cerr << "MCTS Engine error: " << e.what() << endl;
+            GameState st = parseJson(line, all_cards, all_nobles);
+
+            MctsConfig turn_cfg = cfg;
+            turn_cfg.seed = runtime_seed++;
+
+            Move chosen = select_mcts_move(st, you - 1, turn_cfg, weights, belief);
+            cout << moveToString(chosen) << endl << std::flush;
+        } catch (const std::exception& e) {
+            cerr << "mcts_engine_01 error: " << e.what() << endl;
+            cout << "PASS" << endl << std::flush;
         } catch (...) {
-            cerr << "MCTS Engine error: unknown" << endl;
+            cerr << "mcts_engine_01 error: unknown" << endl;
+            cout << "PASS" << endl << std::flush;
         }
     }
+
     return 0;
 }
+#endif
