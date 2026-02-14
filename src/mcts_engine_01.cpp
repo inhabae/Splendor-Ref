@@ -38,21 +38,24 @@ bool extractIntField(const string& s, const string& key, int& out) {
 void applyWeightByIndex(EvalWeights& w, int idx, double v) {
     if (idx == 0) w.W_POINT_SELF = v;
     else if (idx == 1) w.W_POINT_OPP = v;
-    else if (idx == 2) w.W_GEM_SELF = v;
-    else if (idx == 3) w.W_GEM_OPP = v;
-    else if (idx == 4) w.W_BONUS_SELF = v;
-    else if (idx == 5) w.W_BONUS_OPP = v;
-    else if (idx == 6) w.W_RESERVED_SELF = v;
-    else if (idx == 7) w.W_RESERVED_OPP = v;
-    else if (idx == 8) w.W_NOBLE_PROGRESS_SELF = v;
-    else if (idx == 9) w.W_NOBLE_PROGRESS_OPP = v;
-    else if (idx == 10) w.W_AFFORDABLE_SELF = v;
-    else if (idx == 11) w.W_AFFORDABLE_OPP = v;
-    else if (idx == 12) w.W_WIN_BONUS = v;
-    else if (idx == 13) w.W_LOSS_PENALTY = v;
-    else if (idx == 14) w.W_TURN_PENALTY = v;
-    else if (idx == 15) w.W_EFFICIENCY = v;
-    else if (idx == 16) w.W_DIRECTIONAL_COMMITMENT = v;
+    else if (idx == 2) w.W_BONUS_SELF = v;
+    else if (idx == 3) w.W_BONUS_OPP = v;
+    else if (idx == 4) w.W_RESERVED_SELF = v;
+    else if (idx == 5) w.W_RESERVED_OPP = v;
+    else if (idx == 6) w.W_NOBLE_PROGRESS_SELF = v;
+    else if (idx == 7) w.W_NOBLE_PROGRESS_OPP = v;
+    else if (idx == 8) w.W_AFFORDABLE_SELF = v;
+    else if (idx == 9) w.W_AFFORDABLE_OPP = v;
+    else if (idx == 10) w.W_WIN_BONUS = v;
+    else if (idx == 11) w.W_LOSS_PENALTY = v;
+    else if (idx == 12) w.W_TURN_PENALTY = v;
+    else if (idx == 13) w.W_EFFICIENCY = v;
+    else if (idx == 14) w.W_DIR_FOCUS = v;
+    else if (idx == 15) w.W_DIR_PROGRESS = v;
+    else if (idx == 16) w.W_DIR_SPREAD = v;
+    else if (idx == 17) w.W_DIR_RESERVE_MATCH = v;
+    else if (idx == 18) w.W_DIR_SUPPORT_MATCH = v;
+    else if (idx == 19) w.W_DIR_SLOT_PENALTY = v;
 }
 
 } // namespace
@@ -100,7 +103,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    for (size_t i = 0; i < positional_weights.size() && i < 17; ++i) {
+    for (size_t i = 0; i < positional_weights.size() && i < 20; ++i) {
         applyWeightByIndex(weights, static_cast<int>(i), positional_weights[i]);
     }
 

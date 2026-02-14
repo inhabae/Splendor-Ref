@@ -40,6 +40,6 @@ $(TEST_TARGET): $(TEST_DIR)/tests.cpp game_logic.o | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) $(TEST_DIR)/tests.cpp game_logic.o
 
 clean:
-	rm -rf $(BUILD_DIR) *.o
+	rm -f $(TARGET) $(RANDOM_ENGINE) $(MCTS_01) $(TEST_TARGET) *.o
 
 .PHONY: all clean test

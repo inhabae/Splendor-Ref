@@ -6,12 +6,17 @@
 namespace {
 const double EFFICIENCY_THRESHOLD = 0.24;
 
+struct DirectionalTerms {
+    double focus = 0.0;
+    double progress = 0.0;
+    double spread = 0.0;
+    double reserve_match = 0.0;
+    double support_match = 0.0;
+    double slot_penalty = 0.0;
+};
+
 int bonusTotal(const Tokens& t) {
     return t.black + t.blue + t.white + t.green + t.red;
-}
-
-int gemTotalWeighted(const Tokens& t) {
-    return t.black + t.blue + t.white + t.green + t.red + (2 * t.joker);
 }
 
 bool canAfford(const Player& p, const Card& c) {
@@ -76,7 +81,9 @@ double efficiencyScore(const Player& p) {
     return score;
 }
 
-double directionalCommitmentScore(const Player& p) {
+DirectionalTerms directionalCommitmentTerms(const Player& p) {
+    DirectionalTerms out;
+    const int reserved_count = static_cast<int>(p.reserved.size());
     std::vector<Card> high_eff_reserved;
     for (size_t i = 0; i < p.reserved.size(); ++i) {
         const Card& c = p.reserved[i];
@@ -87,7 +94,14 @@ double directionalCommitmentScore(const Player& p) {
         if (eff >= EFFICIENCY_THRESHOLD) high_eff_reserved.push_back(c);
     }
 
-    if (high_eff_reserved.empty()) return 0.0;
+    if (reserved_count >= 1) out.slot_penalty += 0.10;
+    if (reserved_count >= 2) out.slot_penalty += 0.25;
+    if (reserved_count >= 3) out.slot_penalty += 0.55;
+
+    if (high_eff_reserved.empty()) {
+        // Penalize filling reserve slots when reservations are not efficient/committed.
+        return out;
+    }
 
     // Demand by color order: black, blue, white, green, red.
     double demand[5] = {0, 0, 0, 0, 0};
@@ -145,9 +159,57 @@ double directionalCommitmentScore(const Player& p) {
     }
     const double spread = entropy / std::log(5.0);
 
-    const double slot_penalty = std::max(0.0, static_cast<double>(high_eff_reserved.size()) - 2.0);
+    // Reward reserve-to-reserve matching: additional reserved cards should align
+    // with existing reserved demand rather than opening unrelated directions.
+    double pair_similarity = 0.0;
+    int pair_count = 0;
+    for (size_t i = 0; i < high_eff_reserved.size(); ++i) {
+        const Card& a = high_eff_reserved[i];
+        const double total_a = static_cast<double>(a.cost.black + a.cost.blue + a.cost.white + a.cost.green + a.cost.red);
+        if (total_a <= 0.0) continue;
+        const double an[5] = {
+            a.cost.black / total_a,
+            a.cost.blue / total_a,
+            a.cost.white / total_a,
+            a.cost.green / total_a,
+            a.cost.red / total_a
+        };
+        for (size_t j = i + 1; j < high_eff_reserved.size(); ++j) {
+            const Card& b = high_eff_reserved[j];
+            const double total_b = static_cast<double>(b.cost.black + b.cost.blue + b.cost.white + b.cost.green + b.cost.red);
+            if (total_b <= 0.0) continue;
+            const double bn[5] = {
+                b.cost.black / total_b,
+                b.cost.blue / total_b,
+                b.cost.white / total_b,
+                b.cost.green / total_b,
+                b.cost.red / total_b
+            };
+            double dot = 0.0;
+            for (int c = 0; c < 5; ++c) dot += an[c] * bn[c];
+            pair_similarity += dot;
+            pair_count++;
+        }
+    }
+    const double reserve_match = (pair_count > 0) ? (pair_similarity / static_cast<double>(pair_count)) : 0.0;
 
-    return focus + 0.5 * progress - 0.7 * spread - 0.25 * slot_penalty;
+    // Reward matching reserved demand to current token+bonus support.
+    double support_match = 0.0;
+    if (total_demand > 0.0) {
+        for (int c = 0; c < 5; ++c) {
+            const double covered = std::min(demand[c], support[c]);
+            support_match += covered;
+        }
+        support_match /= total_demand;
+    }
+
+    // Escalating reserve slot penalty: slight at 1, higher at 2, highest at 3.
+    out.focus = focus;
+    out.progress = progress;
+    out.spread = spread;
+    out.reserve_match = reserve_match;
+    out.support_match = support_match;
+    return out;
 }
 
 } // namespace
@@ -162,9 +224,6 @@ double evaluate_state(const GameState& state, int root_player, const EvalWeights
     score += w.W_POINT_SELF * self.points;
     score -= w.W_POINT_OPP * enemy.points;
 
-    score += w.W_GEM_SELF * gemTotalWeighted(self.tokens);
-    score -= w.W_GEM_OPP * gemTotalWeighted(enemy.tokens);
-
     score += w.W_BONUS_SELF * bonusTotal(self.bonuses);
     score -= w.W_BONUS_OPP * bonusTotal(enemy.bonuses);
 
@@ -177,7 +236,14 @@ double evaluate_state(const GameState& state, int root_player, const EvalWeights
     score += w.W_AFFORDABLE_SELF * countAffordable(state, root_player);
     score -= w.W_AFFORDABLE_OPP * countAffordable(state, opp);
     score += w.W_EFFICIENCY * (efficiencyScore(self) - efficiencyScore(enemy));
-    score += w.W_DIRECTIONAL_COMMITMENT * (directionalCommitmentScore(self) - directionalCommitmentScore(enemy));
+    const DirectionalTerms self_dir = directionalCommitmentTerms(self);
+    const DirectionalTerms opp_dir = directionalCommitmentTerms(enemy);
+    score += w.W_DIR_FOCUS * (self_dir.focus - opp_dir.focus);
+    score += w.W_DIR_PROGRESS * (self_dir.progress - opp_dir.progress);
+    score -= w.W_DIR_SPREAD * (self_dir.spread - opp_dir.spread);
+    score += w.W_DIR_RESERVE_MATCH * (self_dir.reserve_match - opp_dir.reserve_match);
+    score += w.W_DIR_SUPPORT_MATCH * (self_dir.support_match - opp_dir.support_match);
+    score -= w.W_DIR_SLOT_PENALTY * (self_dir.slot_penalty - opp_dir.slot_penalty);
 
     score -= w.W_TURN_PENALTY * state.move_number;
 
