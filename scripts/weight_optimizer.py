@@ -152,6 +152,7 @@ def evaluate_weights(
                 p1_cmd,
                 p2_cmd,
                 args.referee,
+                args.referee_args,
                 seed + game_id,
                 args.log_games,
                 args.log_dir,
@@ -174,6 +175,16 @@ def main() -> int:
         help="Quoted args passed before positional weights",
     )
     parser.add_argument("--referee", default="./build/referee", help="Referee executable")
+    parser.add_argument(
+        "--referee-args",
+        default="--no-log",
+        help="Quoted extra args passed to referee before seed (default disables referee log file writes)",
+    )
+    parser.add_argument(
+        "--referee-log",
+        action="store_true",
+        help="Enable referee file logging during optimization",
+    )
     parser.add_argument(
         "--baseline-cmd",
         default=None,
@@ -206,6 +217,11 @@ def main() -> int:
     args = parser.parse_args()
 
     args.engine_args = shlex.split(args.engine_args)
+    args.referee_args = shlex.split(args.referee_args)
+    if not args.referee_log and "--no-log" not in args.referee_args:
+        args.referee_args.append("--no-log")
+    if args.referee_log:
+        args.referee_args = [a for a in args.referee_args if a != "--no-log"]
     if args.iterations <= 0 or args.games_per_eval <= 0 or args.final_games <= 0:
         print("iterations, games-per-eval, and final-games must be > 0")
         return 2

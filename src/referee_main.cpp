@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <iomanip>
+#include <cstdlib>
 #include "game_logic.h"
 
 using std::string;
@@ -42,6 +43,8 @@ int main(int argc, char* argv[]) {
     
     // Buffer for logging to prevent engines from reading game info during the match
     stringstream log_ss;
+    bool write_log = true;
+    string log_path = "game.log";
 
     // Paths can be customized via environment variables or CLI in the future
     const string cards_path = "data/cards.json";
@@ -58,10 +61,39 @@ int main(int argc, char* argv[]) {
     
     cerr << "Loaded " << all_cards.size() << " cards and " << all_nobles.size() << " nobles" << endl;
     
-    // Normal mode with optional seed
+    // Normal mode with optional seed and log controls.
+    // Supported flags:
+    //   --no-log
+    //   --log
+    //   --log-file <path>
+    //   --log-file=<path>
+    // Unflagged numeric args are treated as seed.
     unsigned int seed = 0;
-    if (argc > 1) {
-        seed = static_cast<unsigned int>(atoi(argv[1]));
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "--no-log") {
+            write_log = false;
+            continue;
+        }
+        if (arg == "--log") {
+            write_log = true;
+            continue;
+        }
+        if (arg == "--log-file" && i + 1 < argc) {
+            log_path = argv[++i];
+            continue;
+        }
+        const string log_file_prefix = "--log-file=";
+        if (arg.find(log_file_prefix) == 0) {
+            log_path = arg.substr(log_file_prefix.size());
+            continue;
+        }
+
+        char* end_ptr = nullptr;
+        unsigned long parsed = std::strtoul(arg.c_str(), &end_ptr, 10);
+        if (end_ptr != nullptr && *end_ptr == '\0') {
+            seed = static_cast<unsigned int>(parsed);
+        }
     }
     
     if (seed == 0) {
@@ -122,10 +154,12 @@ int main(int argc, char* argv[]) {
                  << std::fixed << std::setprecision(3) << game.players[current].time_bank << "s)" << endl;
             
             // Write log and exit
-            ofstream log_file("game.log");
-            if (log_file.is_open()) {
-                log_file << log_ss.str();
-                log_file.close();
+            if (write_log) {
+                ofstream log_file(log_path.c_str());
+                if (log_file.is_open()) {
+                    log_file << log_ss.str();
+                    log_file.close();
+                }
             }
             return 0;
         }
@@ -169,10 +203,12 @@ int main(int argc, char* argv[]) {
             cout << "REASON: Player " << (current + 1) << " made invalid move (" << move_valid.error_message << ")" << endl;
             
             // Write log and exit
-            ofstream log_file("game.log");
-            if (log_file.is_open()) {
-                log_file << log_ss.str();
-                log_file.close();
+            if (write_log) {
+                ofstream log_file(log_path.c_str());
+                if (log_file.is_open()) {
+                    log_file << log_ss.str();
+                    log_file.close();
+                }
             }
             return 0;
         }
@@ -233,11 +269,13 @@ int main(int argc, char* argv[]) {
         log_ss << "Game Result: Player " << (winner + 1) << " wins!" << endl;
     }
     
-    // Write the buffered log to game.log after the game is over
-    ofstream log_file("game.log");
-    if (log_file.is_open()) {
-        log_file << log_ss.str();
-        log_file.close();
+    // Write the buffered log after the game is over
+    if (write_log) {
+        ofstream log_file(log_path.c_str());
+        if (log_file.is_open()) {
+            log_file << log_ss.str();
+            log_file.close();
+        }
     }
     
     return 0;

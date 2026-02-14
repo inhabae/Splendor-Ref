@@ -21,8 +21,13 @@ This creates:
 ### Running a Game (Referee)
 
 ```bash
-./build/referee [seed]
+./build/referee [seed] [--no-log]
 ```
+
+Referee logging controls:
+- `--no-log`: Disable writing `game.log`.
+- `--log`: Enable writing `game.log` (default).
+- `--log-file PATH`: Write referee log to a custom file.
 
 ### MCTS Engine 01
 
@@ -70,10 +75,19 @@ Example:
 python3 scripts/weight_optimizer.py
 ```
 
+By default, the optimizer runs referee with `--no-log` to avoid referee log I/O during tuning.
+Use `--referee-log` if you want to force referee log files during optimization.
+
 ### Tournament / Match Running
 
 ```bash
 python3 scripts/tournament_runner.py ./build/mcts_engine_01 ./build/random_engine
+```
+
+To pass referee flags (for example disabling referee file logging):
+
+```bash
+python3 scripts/tournament_runner.py "./build/mcts_engine_01" "./build/random_engine" --referee-no-log
 ```
 
 ### Running Tests

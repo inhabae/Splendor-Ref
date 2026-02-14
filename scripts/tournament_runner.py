@@ -48,8 +48,8 @@ def make_log_path(log_dir: str, game_id: int, seed: int) -> str:
     return os.path.join(log_dir, f"game_{game_id:04d}_seed_{seed}.log")
 
 
-def run_single_game(task: Tuple[int, List[str], List[str], str, int, bool, str, bool]) -> GameResult:
-    game_id, p1_cmd, p2_cmd, referee_path, seed, enable_log, log_dir, verbose = task
+def run_single_game(task: Tuple[int, List[str], List[str], str, List[str], int, bool, str, bool]) -> GameResult:
+    game_id, p1_cmd, p2_cmd, referee_path, referee_args, seed, enable_log, log_dir, verbose = task
 
     log_lines: List[str] = []
     log_path: Optional[str] = None
@@ -63,7 +63,7 @@ def run_single_game(task: Tuple[int, List[str], List[str], str, int, bool, str, 
         log_path = make_log_path(resolved_log_dir, game_id, seed)
 
     referee = subprocess.Popen(
-        [referee_path, str(seed)],
+        [referee_path] + list(referee_args) + [str(seed)],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
@@ -240,7 +240,7 @@ def summarize(results: List[GameResult], engine1_cmd: List[str], engine2_cmd: Li
     print("=" * 50)
 
 
-def build_tasks(args: argparse.Namespace, engine1_cmd: List[str], engine2_cmd: List[str]) -> List[Tuple[int, List[str], List[str], str, int, bool, str, bool]]:
+def build_tasks(args: argparse.Namespace, engine1_cmd: List[str], engine2_cmd: List[str]) -> List[Tuple[int, List[str], List[str], str, List[str], int, bool, str, bool]]:
     tasks = []
     base_seed = args.seed if args.seed is not None else int(time.time())
 
@@ -256,6 +256,7 @@ def build_tasks(args: argparse.Namespace, engine1_cmd: List[str], engine2_cmd: L
             p1_cmd,
             p2_cmd,
             args.referee,
+            args.referee_args,
             base_seed + game_id,
             args.log,
             args.log_dir,
@@ -274,6 +275,16 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("engine2", help="Engine 2 command (quote if it has args)")
     parser.add_argument("--games", type=int, default=1, help="Number of games to run (default: 1)")
     parser.add_argument("--referee", default="./build/referee", help="Referee executable path")
+    parser.add_argument(
+        "--referee-args",
+        default="",
+        help="Quoted extra args passed to referee before seed (example: \"--no-log\")",
+    )
+    parser.add_argument(
+        "--referee-no-log",
+        action="store_true",
+        help="Add --no-log when launching referee",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Base seed (game i uses seed+i)")
     parser.add_argument(
         "--parallel",
@@ -305,6 +316,9 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
     try:
         engine1_cmd = parse_engine_cmd(args.engine1)
         engine2_cmd = parse_engine_cmd(args.engine2)
+        args.referee_args = shlex.split(args.referee_args)
+        if args.referee_no_log and "--no-log" not in args.referee_args:
+            args.referee_args.append("--no-log")
     except ValueError as e:
         print(str(e))
         return 2
