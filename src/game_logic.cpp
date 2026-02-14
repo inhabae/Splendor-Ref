@@ -8,6 +8,7 @@
 #include <random>
 #include <sstream>
 #include <ctime>
+#include <unordered_map>
 
 using std::string;
 using std::vector;
@@ -751,14 +752,48 @@ ValidationResult validateBuyCard(const GameState& state, const Move& move) {
 
 // Helper function to load a specific card by ID
 Card loadCardById(int card_id, const vector<Card>& all_cards) {
-    for (const Card& card : all_cards) {
-        if (card.id == card_id) {
-            return card;
+    static const vector<Card>* cached_cards = nullptr;
+    static std::unordered_map<int, Card> card_by_id;
+
+    if (cached_cards != &all_cards) {
+        card_by_id.clear();
+        card_by_id.reserve(all_cards.size());
+        for (size_t i = 0; i < all_cards.size(); ++i) {
+            card_by_id[all_cards[i].id] = all_cards[i];
         }
+        cached_cards = &all_cards;
     }
+
+    std::unordered_map<int, Card>::const_iterator it = card_by_id.find(card_id);
+    if (it != card_by_id.end()) {
+        return it->second;
+    }
+
     // Return empty card if not found
     Card empty_card = {0, 0, 0, "", {}};
     return empty_card;
+}
+
+Noble loadNobleById(int noble_id, const vector<Noble>& all_nobles) {
+    static const vector<Noble>* cached_nobles = nullptr;
+    static std::unordered_map<int, Noble> noble_by_id;
+
+    if (cached_nobles != &all_nobles) {
+        noble_by_id.clear();
+        noble_by_id.reserve(all_nobles.size());
+        for (size_t i = 0; i < all_nobles.size(); ++i) {
+            noble_by_id[all_nobles[i].id] = all_nobles[i];
+        }
+        cached_nobles = &all_nobles;
+    }
+
+    std::unordered_map<int, Noble>::const_iterator it = noble_by_id.find(noble_id);
+    if (it != noble_by_id.end()) {
+        return it->second;
+    }
+
+    Noble empty_noble = {0, 0, {}};
+    return empty_noble;
 }
 
 // Apply a validated move to game state
@@ -2143,7 +2178,14 @@ GameState parseJson(const std::string& json, const std::vector<Card>& all_c, con
         n_p += 10; size_t n_e = board_json.find("]", n_p);
         if (n_e != std::string::npos) {
             std::stringstream ss(board_json.substr(n_p, n_e - n_p)); std::string id_s;
-            while (std::getline(ss, id_s, ',')) { if (!id_s.empty()) { try { int id = std::stoi(id_s); for (const auto& n : all_n) if (n.id == id) st.available_nobles.push_back(n); } catch(...) {} } }
+            while (std::getline(ss, id_s, ',')) {
+                if (id_s.empty()) continue;
+                try {
+                    int id = std::stoi(id_s);
+                    Noble n = loadNobleById(id, all_n);
+                    if (n.id > 0) st.available_nobles.push_back(n);
+                } catch(...) {}
+            }
         }
     }
     
