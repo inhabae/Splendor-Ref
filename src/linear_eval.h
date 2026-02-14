@@ -13,8 +13,8 @@ struct EvalWeights {
     double W_RESERVED_OPP = 0.0;
     double W_NOBLE_PROGRESS_SELF = 0.84936494;
     double W_NOBLE_PROGRESS_OPP = 0.53619669;
-    double W_AFFORDABLE_SELF = 0.1;
-    double W_AFFORDABLE_OPP = 0.1;
+    double W_AFFORDABLE_SELF = 0.4;
+    double W_AFFORDABLE_OPP = 0.4;
     double W_WIN_BONUS = 761.21519;
     double W_LOSS_PENALTY = 761.21519;
     double W_TURN_PENALTY = 0.020127013;
